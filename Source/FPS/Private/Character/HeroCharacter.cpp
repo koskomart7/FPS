@@ -5,6 +5,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
 // Sets default values
@@ -12,6 +13,8 @@ AHeroCharacter::AHeroCharacter()
 {
  	
 	PrimaryActorTick.bCanEverTick = true;
+	
+	GetCharacterMovement()->MovementState.bCanCrouch = true;
 	
 	// SpringArm :  컨트롤러 회전을 따라가는 회전 허브
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>("springArm");
