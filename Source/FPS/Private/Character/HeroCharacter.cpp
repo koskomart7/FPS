@@ -3,9 +3,11 @@
 
 #include "Character/HeroCharacter.h"
 
+#include "EnhancedInputComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Combat/CombatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Data/WeaponData.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
@@ -56,7 +58,6 @@ void AHeroCharacter::BeginPlay()
 	
 }
 
-
 void AHeroCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -66,6 +67,51 @@ void AHeroCharacter::Tick(float DeltaTime)
 void AHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	
+	UEnhancedInputComponent* HeroInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
+	HeroInputComponent->BindAction(CycleWeaponAction, ETriggerEvent::Started, this, &ThisClass::Input_CycleWeapon);
+	HeroInputComponent->BindAction(ReloadWeaponAction, ETriggerEvent::Started, this, &ThisClass::Input_ReloadWeapon);
+	HeroInputComponent->BindAction(FireWeaponAction, ETriggerEvent::Started, this, &ThisClass::Input_FireWeapon_Pressed);
+	HeroInputComponent->BindAction(FireWeaponAction, ETriggerEvent::Completed, this, &ThisClass::Input_FireWeapon_Released);
+	HeroInputComponent->BindAction(AimWeaponAction, ETriggerEvent::Started, this, &ThisClass::Input_Aim_Pressed);
+	HeroInputComponent->BindAction(AimWeaponAction, ETriggerEvent::Completed, this, &ThisClass::Input_Aim_Released);
+	
+}
+
+FName AHeroCharacter::GetWeaponAttachPoint_Implementation(const FGameplayTag& WeaponType) const
+{
+	checkf(Combat->WeaponData, TEXT("No Weapon Data Asset - Please fill out BP_HeroCharacter"));
+	return Combat->WeaponData->GripPoints.FindChecked(WeaponType);
+}
+
+void AHeroCharacter::Input_CycleWeapon()
+{
+	Combat->Initiate_CycleWeapon();
+}
+
+void AHeroCharacter::Input_ReloadWeapon()
+{
+	Combat->Initiate_ReloadWeapon();
+}
+
+void AHeroCharacter::Input_FireWeapon_Pressed()
+{
+	Combat->Initiate_FireWeapon_Pressed();
+}
+
+void AHeroCharacter::Input_FireWeapon_Released()
+{
+	Combat->Initiate_FireWeapon_Released();
+}
+
+void AHeroCharacter::Input_Aim_Pressed()
+{
+	Combat->Initiate_Aim_Pressed();
+}
+
+void AHeroCharacter::Input_Aim_Released()
+{
+	Combat->Initiate_Aim_Released();
 }
 
