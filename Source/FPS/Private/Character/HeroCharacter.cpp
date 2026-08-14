@@ -4,6 +4,7 @@
 #include "Character/HeroCharacter.h"
 
 #include "Camera/CameraComponent.h"
+#include "Combat/CombatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -43,6 +44,9 @@ AHeroCharacter::AHeroCharacter()
 	GetMesh()->bOnlyOwnerSee = false;
 	GetMesh()->bOwnerNoSee = true;		// ★ 나는 안 보임
 	GetMesh()->bReceivesDecals = false;
+	
+	Combat = CreateDefaultSubobject<UCombatComponent>("Combat");
+	Combat->SetIsReplicated(true);
 }
 
 

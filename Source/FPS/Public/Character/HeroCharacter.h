@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "HeroCharacter.generated.h"
 
+class UCombatComponent;
 class UCameraComponent;
 class USpringArmComponent;
 
@@ -28,6 +29,10 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	
+	UPROPERTY(visibleAnywhere)
+	TObjectPtr<UCombatComponent> Combat;
+	
 	// 1인칭 시점 뷰 (arms)
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USkeletalMeshComponent> Mesh1P;
