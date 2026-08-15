@@ -79,6 +79,18 @@ void AHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	
 }
 
+void AHeroCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	
+	// BeginPlay 시점엔 빙의가 보장되지 않는다. -> 따라서 PossessedBy로 빙의 완료 확인 
+	if (IsValid(Combat))
+	{
+		Combat->SpawnInventory();
+	}
+}
+
+// 무기 부착 인터페이스
 FName AHeroCharacter::GetWeaponAttachPoint_Implementation(const FGameplayTag& WeaponType) const
 {
 	checkf(Combat->WeaponData, TEXT("No Weapon Data Asset - Please fill out BP_HeroCharacter"));

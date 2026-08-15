@@ -25,6 +25,8 @@ public:
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
+	virtual void PossessedBy(AController* NewController) override;
+	
 	/** 플레이어 인터페이스 구현 **/
 #pragma region Player Interface Section
 
