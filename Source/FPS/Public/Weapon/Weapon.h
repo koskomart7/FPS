@@ -15,7 +15,9 @@ class FPS_API AWeapon : public AActor
 public:
 	AWeapon();
 	
-	
+	virtual void OnRep_Instigator() override; 	
+
+	void AttachToOwningPawn() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -33,7 +35,8 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USkeletalMeshComponent> Mesh3P;
 	
-	
+	// 메쉬 가시성 설정 함수 
+	void SetMeshVisibilities(APawn* OwingPawn) const;
 	
 public:
 	// 각 메쉬에 대한 getter 함수 

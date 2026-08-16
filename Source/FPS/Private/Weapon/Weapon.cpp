@@ -3,6 +3,9 @@
 
 #include "Weapon/Weapon.h"
 
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Pawn.h"
+#include "Interfaces/PlayerInterface.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -29,6 +32,12 @@ AWeapon::AWeapon()
 	
 }
 
+void AWeapon::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	AttachToOwningPawn();
+}
+
 USkeletalMeshComponent* AWeapon::GetMesh1P() const
 {
 	return Mesh1P;
@@ -39,10 +48,43 @@ USkeletalMeshComponent* AWeapon::GetMesh3P() const
 	return Mesh3P;
 }
 
+void AWeapon::AttachToOwningPawn() const
+{
+	// 소유자 검사
+	APawn* OwingPawn = GetInstigator();
+	if (!IsValid(OwingPawn) || !OwingPawn->Implements<UPlayerInterface>()) return;
+
+	// 메쉬 가시성 설정
+	SetMeshVisibilities(OwingPawn);	// const 함수 내부에서 호출시에 해당 함수도 const 여야함
+
+	// BNE( Blueprint Native Event ) 인터페이스 함수 호출 _ Execute_ 정적 래퍼 
+	const FName AttachPoint = IPlayerInterface::Execute_GetWeaponAttachPoint(OwingPawn, WeaponType);
+	USkeletalMeshComponent* PawnMesh1P = IPlayerInterface::Execute_GetMesh1P(OwingPawn);
+	USkeletalMeshComponent* PawnMesh3P = IPlayerInterface::Execute_GetMesh3P(OwingPawn);
+	
+	// 메쉬 소켓에 부착
+	Mesh1P->AttachToComponent(PawnMesh1P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
+	Mesh3P->AttachToComponent(PawnMesh3P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
+
+}
+
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 	
 }
 
-
+void AWeapon::SetMeshVisibilities(APawn* OwningPawn) const
+{
+	// 현재 이 머신에서 해당 폰을 조종 중인가 - 무기는 코드가 직접 판정
+	if(OwningPawn->IsLocallyControlled())
+	{
+		Mesh1P -> SetHiddenInGame(false);	// 내화면 : 1인칭 무기만 보임
+		Mesh3P -> SetHiddenInGame(true);
+	}
+	else
+	{
+		Mesh1P -> SetHiddenInGame(true);	// 상대 / 서버 관점 : 3인칭 무기만 보임
+		Mesh3P -> SetHiddenInGame(false);
+	}
+}

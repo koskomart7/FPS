@@ -97,6 +97,16 @@ FName AHeroCharacter::GetWeaponAttachPoint_Implementation(const FGameplayTag& We
 	return Combat->WeaponData->GripPoints.FindChecked(WeaponType);
 }
 
+USkeletalMeshComponent* AHeroCharacter::GetMesh3P_Implementation() const
+{
+	return GetMesh();
+}
+
+USkeletalMeshComponent* AHeroCharacter::GetMesh1P_Implementation() const
+{
+	return Mesh1P;
+}
+
 void AHeroCharacter::Input_CycleWeapon()
 {
 	Combat->Initiate_CycleWeapon();

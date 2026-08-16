@@ -85,7 +85,14 @@ void UCombatComponent::Initiate_Aim_Released()
 
 void UCombatComponent::SpawnInventory()
 {
+	// 서버에서만 무기 생성
 	AWeapon* NewWeapon = SpawnWeapon(DefaultWeaponClass);
+	
+	if(IsValid(NewWeapon))	// ★ 클라에선 null (13강 게이트가 스폰 자체를 막음)
+	{
+		NewWeapon->AttachToOwningPawn();
+	}
+
 }
 
 void UCombatComponent::DestroyInventory()
