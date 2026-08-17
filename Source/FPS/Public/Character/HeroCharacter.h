@@ -21,6 +21,11 @@ public:
 	
 	AHeroCharacter();
 	
+	virtual void BeginPlay() override;
+	
+	virtual void BeginDestroy() override;
+
+	
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -40,8 +45,7 @@ public:
 	
 protected:
 	
-	virtual void BeginPlay() override;
-
+	
 private:
 	
 	void Input_CycleWeapon();

@@ -19,7 +19,7 @@ AWeapon::AWeapon()
 	Mesh1P->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 	Mesh1P->bReceivesDecals = false;
 	Mesh1P->CastShadow = false;
-	//Mesh1P->SetHiddenInGame(true);
+	Mesh1P->SetHiddenInGame(true);		// 장착 되지 않는 재고 무기를 숨기기 위해
 	SetRootComponent(Mesh1P);
 	
 	Mesh3P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh3P");
@@ -27,13 +27,16 @@ AWeapon::AWeapon()
 	Mesh3P->bReceivesDecals = false;
 	Mesh3P->CastShadow = true;
 	Mesh3P->SetupAttachment(Mesh1P);
-	//Mesh3P->SetHiddenInGame(true);
+	Mesh3P->SetHiddenInGame(true);		// 장착 되지 않는 재고 무기를 숨기기 위해
 	
 	
 }
 
 void AWeapon::OnRep_Instigator()
 {
+	// 게임 시작시 여러 오브젝트의 복제 순서는 비결정적
+	// 무기 스스로도 유효한 Instigator가 생기는 시점에 부착을 시도하도록 유지 - OnRep_Instigator
+	// 그 이후, 게임 중 무기를 바꾸는 상황은 OnRep_CurrentWeapon이 맡는다
 	Super::OnRep_Instigator();
 	AttachToOwningPawn();
 }

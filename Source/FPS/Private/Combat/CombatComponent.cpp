@@ -3,6 +3,7 @@
 
 #include "Combat/CombatComponent.h"
 #include "GameFramework/Pawn.h"
+#include "Net/UnrealNetwork.h"
 #include "Weapon/Weapon.h"
 
 // Sets default values for this component's properties
@@ -22,6 +23,17 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	// ...
 }
+
+void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	// 변수 복제용 표시	
+	DOREPLIFETIME(UCombatComponent, Inventory);
+	DOREPLIFETIME(UCombatComponent, CurrentWeapon);
+	
+}
+
 
 void UCombatComponent::Initiate_CycleWeapon()
 {
@@ -83,21 +95,48 @@ void UCombatComponent::Initiate_Aim_Released()
 		false);	
 }
 
+void UCombatComponent::Equip(AWeapon* Weapon)
+{
+	CurrentWeapon = Weapon;					// 값 변경 = 복제 트리거
+	CurrentWeapon->AttachToOwningPawn();	// 서버 몫의 부착 (서버는 OnRep 자동 호출 없음)
+}
+
+// 인벤토리 생성
 void UCombatComponent::SpawnInventory()
 {
-	// 서버에서만 무기 생성
-	AWeapon* NewWeapon = SpawnWeapon(DefaultWeaponClass);
+	// 권한 점검 - 서버가 아니면 즉시 종료 
+	if(GetOwner()->GetLocalRole() < ROLE_Authority) return;
+
 	
-	if(IsValid(NewWeapon))	// ★ 클라에선 null (13강 게이트가 스폰 자체를 막음)
+	for(TSubclassOf<AWeapon>& WeaponClass : DefaultWeaponClasses)
 	{
-		NewWeapon->AttachToOwningPawn();
+		AWeapon* Weapon = SpawnWeapon(WeaponClass);
+		Inventory.AddUnique(Weapon);	// 동일 포인터 중복만 거름 
 	}
 
+	if(Inventory.Num() > 0)		// 빈 배열 인덱싱 방지
+	{
+		Equip(Inventory[0]);
+	}
 }
 
 void UCombatComponent::DestroyInventory()
 {
-	// TODO: 재고가 확보되는 대로 이를 폐기하십시오.
+	for(AWeapon* Weapon : Inventory)
+	{
+		if(IsValid(Weapon))
+		{
+			Weapon->Destroy();
+		}
+	}
+}
+
+void UCombatComponent::OnRep_CurrentWeapon(AWeapon* LastWeapon)
+{
+	//	게임 중 무기를 바꾸는 상황은 OnRep_CurrentWeapon이 맡는다
+	if (!IsValid(CurrentWeapon)) return;
+
+	CurrentWeapon->AttachToOwningPawn();
 }
 
 

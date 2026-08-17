@@ -58,6 +58,16 @@ void AHeroCharacter::BeginPlay()
 	
 }
 
+void AHeroCharacter::BeginDestroy()
+{
+	Super::BeginDestroy();
+	
+	if (IsValid(Combat))
+	{
+		Combat->DestroyInventory();
+	}
+}
+
 void AHeroCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
