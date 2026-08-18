@@ -47,11 +47,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	bool bAiming;
 	
-protected:
-	
 	// 현재 무기 , 복제 + 클라 도착 시 콜백
 	UPROPERTY(Transient, BlueprintReadOnly, ReplicatedUsing=OnRep_CurrentWeapon)
 	TObjectPtr<AWeapon> CurrentWeapon; 
+	
+protected:
+	
+	
 
 private:
 	

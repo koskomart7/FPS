@@ -42,10 +42,26 @@ public:
 	
 #pragma endregion 
 	
+	UFUNCTION(BlueprintCallable)
+	FRotator GetFixedAnimRotation() const;
+	
+	UPROPERTY(BlueprintReadOnly, Category="FPS|FABRIK")
+	FTransform FABRIK_SocketTransform;
 	
 protected:
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
 	TObjectPtr<UCombatComponent> Combat;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FPS|Camera")
+	TObjectPtr<UCameraComponent> FirstPersonCamera;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="FPS|Aiming")
+	float DefaultFOV;
+	
+	// 에임 동작은 블루프린트에서 구현
+	UFUNCTION(BlueprintImplementableEvent)	
+	void OnAim(bool bIsAiming);
+	
 	
 private:
 	
@@ -56,6 +72,7 @@ private:
 	void Input_Aim_Pressed();
 	void Input_Aim_Released();
 	
+	void CalculateFABRIKSocketTransform();
 	
 	// 1인칭 시점 뷰 (arms)
 	UPROPERTY(VisibleAnywhere)
@@ -63,9 +80,6 @@ private:
 	
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USpringArmComponent> SpringArm;
-	
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UCameraComponent> FirstPersonCamera;
 	
 	UPROPERTY(EditAnywhere, Category="FPS|Input")
 	TObjectPtr<UInputAction> CycleWeaponAction;

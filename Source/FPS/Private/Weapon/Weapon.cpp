@@ -29,7 +29,7 @@ AWeapon::AWeapon()
 	Mesh3P->SetupAttachment(Mesh1P);
 	Mesh3P->SetHiddenInGame(true);		// 장착 되지 않는 재고 무기를 숨기기 위해
 	
-	
+	AimFOV = 65.0f;
 }
 
 void AWeapon::OnRep_Instigator()

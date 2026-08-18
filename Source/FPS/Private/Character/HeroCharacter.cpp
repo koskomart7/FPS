@@ -10,6 +10,7 @@
 #include "Data/WeaponData.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Weapon/Weapon.h"
 
 // Sets default values
 AHeroCharacter::AHeroCharacter()
@@ -49,6 +50,8 @@ AHeroCharacter::AHeroCharacter()
 	
 	Combat = CreateDefaultSubobject<UCombatComponent>("Combat");
 	Combat->SetIsReplicated(true);
+	
+	DefaultFOV = 90.0f;
 }
 
 
@@ -56,6 +59,7 @@ void AHeroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	FirstPersonCamera->SetFieldOfView(DefaultFOV);
 }
 
 void AHeroCharacter::BeginDestroy()
@@ -68,10 +72,59 @@ void AHeroCharacter::BeginDestroy()
 	}
 }
 
+FRotator AHeroCharacter::GetFixedAnimRotation() const
+{
+	// 엔진이 이미 계산한 AimRotation 사용
+	FRotator AimRotation = GetBaseAimRotation();
+	// Pitch 값이 90 보다 크고, 자기 자신이 조종하는 Pawn이 아닐때
+	if (AimRotation.Pitch > 90.0f && !IsLocallyControlled())
+	{
+		const FVector2D InRange(270.f, 360.f);
+		const FVector2D OutRange(-90.f, 0.f);
+		// 입력 범위 안에서 값의 상대적 위치를 계산, 출력 범위에서 같은 비율의 값을 반환, 값 범위 제한
+		AimRotation.Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AimRotation.Pitch);
+	}
+	
+	return AimRotation;
+}
+
 void AHeroCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	CalculateFABRIKSocketTransform();
+}
+
+void AHeroCharacter::CalculateFABRIKSocketTransform()
+{
+	if (IsValid(Combat) 
+		&& IsValid(Combat->CurrentWeapon) 
+		&& IsValid(Combat->CurrentWeapon->GetMesh3P()))
+	{
+		// FABRIK_Socket의 World-space Transform 계산
+		// RTS_World 사용 이유 : Weapon의 Socket과 캐릭터의 hand_r은 서로 다른 SkeletalMesh Component에 있기 때문
+		// 두 컴포넌트가 공유하는 공통기준 = World Space
+		FABRIK_SocketTransform = 
+			Combat->CurrentWeapon->GetMesh3P()
+		->GetSocketTransform("FABRIK_Socket", RTS_World);
+		
+		FVector OutLocation;
+		FRotator OutRotation;
+		
+		// FQuat 를 FRotator로 변환
+		// World Space의 Location/Rotation을 특정 Bone 기준 Relative Space로 변환.
+		// 여기서는 Weapon의 Socket을 캐릭터의 Bone 공간으로 변환
+		GetMesh()->TransformToBoneSpace(
+			"hand_r",
+			FABRIK_SocketTransform.GetLocation(),
+			FABRIK_SocketTransform.GetRotation().Rotator(),	
+			OutLocation,
+			OutRotation);
+		
+		// FTransform 내부 Rotation은 Quaternion 기반이므로 FRotator를 다시 FQuat로 바꾼다.
+		FABRIK_SocketTransform.SetLocation(OutLocation);
+		FABRIK_SocketTransform.SetRotation(OutRotation.Quaternion());
+	}
 }
 
 void AHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -117,6 +170,8 @@ USkeletalMeshComponent* AHeroCharacter::GetMesh1P_Implementation() const
 	return Mesh1P;
 }
 
+
+
 void AHeroCharacter::Input_CycleWeapon()
 {
 	Combat->Initiate_CycleWeapon();
@@ -140,10 +195,15 @@ void AHeroCharacter::Input_FireWeapon_Released()
 void AHeroCharacter::Input_Aim_Pressed()
 {
 	Combat->Initiate_Aim_Pressed();
+	OnAim(true);
 }
 
 void AHeroCharacter::Input_Aim_Released()
 {
 	Combat->Initiate_Aim_Released();
+	OnAim(false);
+	
 }
+
+
 
