@@ -31,7 +31,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	// 변수 복제용 표시	
 	DOREPLIFETIME(UCombatComponent, Inventory);
 	DOREPLIFETIME(UCombatComponent, CurrentWeapon);
-	
+	DOREPLIFETIME_CONDITION(UCombatComponent, bAiming, COND_SkipOwner);	// 조건부 알림으로 서버에 똑같은 값을 보낼 필요가 없다
 }
 
 
@@ -77,22 +77,25 @@ void UCombatComponent::Initiate_ReloadWeapon()
 
 void UCombatComponent::Initiate_Aim_Pressed()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_Aim_Pressed"),
-		false);	
+	Local_Aim(true);
+	Server_Aim(true);
 }
 
 void UCombatComponent::Initiate_Aim_Released()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_Aim_Released"),
-		false);	
+	Local_Aim(false);
+	Server_Aim(false);
+}
+
+void UCombatComponent::Server_Aim_Implementation(bool bPressed)
+{
+	Local_Aim(bPressed);
+}
+
+// Aim 상태 변경 시 실행되는 로컬 처리를 하나의 진입점으로 모으는 것 
+void UCombatComponent::Local_Aim(bool bPressed)
+{
+	bAiming = bPressed;
 }
 
 void UCombatComponent::Equip(AWeapon* Weapon)
@@ -154,4 +157,6 @@ AWeapon* UCombatComponent::SpawnWeapon(TSubclassOf<AWeapon> WeaponClass) const
 	return GetWorld()->SpawnActor<AWeapon>(WeaponClass, SpawnInfo);
 	
 }
+
+
 

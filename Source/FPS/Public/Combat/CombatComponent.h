@@ -33,7 +33,7 @@ public:
 	void Initiate_Aim_Released();
 	
 	// 무기데이터
-	UPROPERTY(EditDefaultsOnly, Category = "FPS|Weapons")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly ,Category = "FPS|Weapons")
 	TObjectPtr<UWeaponData> WeaponData;		
 	
 	// 장비 장착 
@@ -43,14 +43,19 @@ public:
 	void SpawnInventory();
 	void DestroyInventory();
 	
+	// 에임 변수 
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bAiming;
+	
 protected:
 	
+	// 현재 무기 , 복제 + 클라 도착 시 콜백
+	UPROPERTY(Transient, BlueprintReadOnly, ReplicatedUsing=OnRep_CurrentWeapon)
+	TObjectPtr<AWeapon> CurrentWeapon; 
 
 private:
 	
-	// 현재 무기 , 복제 + 클라 도착 시 콜백
-	UPROPERTY(Transient, ReplicatedUsing=OnRep_CurrentWeapon)
-	TObjectPtr<AWeapon> CurrentWeapon; 
+	
 	
 	// 마지막 무기를 숨기고 비활성화 할 때 강력 ( 교체관련 )
 	UFUNCTION()
@@ -66,5 +71,11 @@ private:
 	TArray<TSubclassOf<AWeapon>> DefaultWeaponClasses;	// 추후 인벤토리가 생기면 배열로 교체 - 완료 
 	
 	AWeapon* SpawnWeapon(TSubclassOf<AWeapon> WeaponClass) const;
+	
+	// 에임 관련 함수 ( 서버 RPC )
+	UFUNCTION(Server, Reliable)
+	void Server_Aim(bool bPressed);
+	
+	void Local_Aim(bool bPressed);
 	
 };

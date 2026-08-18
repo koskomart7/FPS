@@ -44,7 +44,8 @@ public:
 	
 	
 protected:
-	
+	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
+	TObjectPtr<UCombatComponent> Combat;
 	
 private:
 	
@@ -55,9 +56,6 @@ private:
 	void Input_Aim_Pressed();
 	void Input_Aim_Released();
 	
-	
-	UPROPERTY(visibleAnywhere)
-	TObjectPtr<UCombatComponent> Combat;
 	
 	// 1인칭 시점 뷰 (arms)
 	UPROPERTY(VisibleAnywhere)
