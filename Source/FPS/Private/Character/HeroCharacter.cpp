@@ -10,6 +10,7 @@
 #include "Data/WeaponData.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Weapon/Weapon.h"
 
 // Sets default values
@@ -52,6 +53,8 @@ AHeroCharacter::AHeroCharacter()
 	Combat->SetIsReplicated(true);
 	
 	DefaultFOV = 90.0f;
+	
+	TurningStatus = ETurningInPlace::NotTurning;
 }
 
 
@@ -60,6 +63,8 @@ void AHeroCharacter::BeginPlay()
 	Super::BeginPlay();
 	
 	FirstPersonCamera->SetFieldOfView(DefaultFOV);
+	
+	StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 }
 
 void AHeroCharacter::BeginDestroy()
@@ -103,6 +108,28 @@ void AHeroCharacter::Tick(float DeltaTime)
 
 void AHeroCharacter::CalculateTurnInPlaceParameters()
 {
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	
+	float Speed = Velocity.Size();
+	bool bIsInAir = GetCharacterMovement()->IsFalling();
+	
+	if (Speed == 0.f && !bIsInAir)	// Standing still, not jumping
+	{
+		FRotator CurrentAimRotation(0.f, GetBaseAimRotation().Yaw, 0.f);
+		
+		// StartingAimRotation은 BeginPlay 에서 초기화된다 
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
+		
+		AO_Yaw = DeltaAimRotation.Yaw;
+		
+		if (TurningStatus == ETurningInPlace::NotTurning)
+		{
+			InterpAO_Yaw = AO_Yaw;
+		}
+		
+	}
+	
 	// Get velocity, see if it's zero
 	// See if we are falling
 	
@@ -131,7 +158,7 @@ void AHeroCharacter::CalculateTurnInPlaceParameters()
 	
 	// 2. 가만히 서 있고 점프 중이 아닐 때 (정지 상태)
             // if (가만히 서 있음 && 점프 중이 아님)
-            {
+            //{
                 // 현재 조준 회전값(Aim Rotation)을 가져옵니다.
                 // 델타 조준 회전값(Delta Aim Rotation)을 계산합니다.
                 // -> (현재 조준 회전값 - 기준이 되는 최초 조준 회전값)의 차이입니다.
@@ -147,14 +174,14 @@ void AHeroCharacter::CalculateTurnInPlaceParameters()
         
                 // TurnInPlace() 함수를 실행합니다.
                 // -> 이 함수는 InterpAO_Yaw 값을 0으로 서서히 보간(부드럽게 감소)시킵니다.
-            }
+            //}
         
 	// 3. 달리는 중이거나 점프 중일 때 (이동 상태)
             // if (달리는 중 || 점프 중)
-            {
+            //{
                 // 최초 조준 회전값을 현재의 실제 조준 회전값으로 초기화합니다.
                 // AO_Yaw 값을 0으로 만듭니다.
-            }
+            //}
         
 	// 4. 꽃게걸음(Strafing) 블렌드 스페이스에 전달할 이동 오프셋 Yaw 계산
             // 기본 조준 회전값(Base Aim Rotation)을 가져옵니다.

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/PlayerInterface.h"
+#include "ShooterTypes/ShooterTypes.h"
 #include "HeroCharacter.generated.h"
 
 class UCombatComponent;
@@ -65,6 +66,12 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)	
 	void OnAim(bool bIsAiming);
 	
+	// TurnInPlace 관련 변수
+	UPROPERTY(BlueprintReadOnly, Category="FPS|TurnInPlace")
+	float AO_Yaw;
+	
+	UPROPERTY(BlueprintReadOnly, Category="FPS|TurnInPlace")
+	ETurningInPlace TurningStatus;
 	
 private:
 	
@@ -77,6 +84,13 @@ private:
 	
 	void CalculateFABRIKSocketTransform();
 	void CalculateTurnInPlaceParameters();
+	
+	// Character 내부 계산값
+	FRotator StartingAimRotation;
+	float InterpAO_Yaw;
+	
+	
+	
 	
 	
 	// 1인칭 시점 뷰 (arms)
