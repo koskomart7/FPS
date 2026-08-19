@@ -48,6 +48,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="FPS|FABRIK")
 	FTransform FABRIK_SocketTransform;
 	
+	UFUNCTION(BlueprintCallable)
+	bool HasCurrentWeapon() const;
+	
 protected:
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
 	TObjectPtr<UCombatComponent> Combat;
@@ -73,6 +76,8 @@ private:
 	void Input_Aim_Released();
 	
 	void CalculateFABRIKSocketTransform();
+	void CalculateTurnInPlaceParameters();
+	
 	
 	// 1인칭 시점 뷰 (arms)
 	UPROPERTY(VisibleAnywhere)

@@ -88,12 +88,116 @@ FRotator AHeroCharacter::GetFixedAnimRotation() const
 	return AimRotation;
 }
 
+bool AHeroCharacter::HasCurrentWeapon() const
+{
+	return IsValid(Combat) && Combat->CurrentWeapon != nullptr;
+}
+
 void AHeroCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	CalculateTurnInPlaceParameters();
 	CalculateFABRIKSocketTransform();
 }
+
+void AHeroCharacter::CalculateTurnInPlaceParameters()
+{
+	// Get velocity, see if it's zero
+	// See if we are falling
+	
+	// if standing still and not jumping
+		// get current aim rotation
+		// get delta aim rotation - the difference in rotation of my current aim rotation from the initial aim rotation
+		// ( initial aim rotation is calculated in BeginPlay )
+		// Store the Yaw of the delta aim rotation ( AO_Yaw )
+		// if TurningStatus == NotTurning
+			// Set InterpAO_Yaw to AO_Yaw
+		// TurnInPlace() - interpolates the InterpAO_Yaw value to zero.
+	
+	// if running or jumping
+		// reset initial aim rotation to the current actual aim rotation
+		// AO_Yaw = 0
+		// We also need a Movement Offset Yaw to feed to our strafing blendspaces
+		// Get Base Aim Rotation
+		// Get our Movement Rotation - this is the rotation of our Velocity
+		// Movement Offset Yaw = the delta between our movement rotation and our aim rotation
+		// TurningStatus = NotTurning
+		
+// ============================== 한글 버전 ====================================
+	// 1. 상태 확인
+            // 속도(Velocity)를 가져와 0인지(멈춰있는지) 확인합니다.
+            // 현재 공중에 떠 있는 상태(Falling)인지 확인합니다.
+	
+	// 2. 가만히 서 있고 점프 중이 아닐 때 (정지 상태)
+            // if (가만히 서 있음 && 점프 중이 아님)
+            {
+                // 현재 조준 회전값(Aim Rotation)을 가져옵니다.
+                // 델타 조준 회전값(Delta Aim Rotation)을 계산합니다.
+                // -> (현재 조준 회전값 - 기준이 되는 최초 조준 회전값)의 차이입니다.
+                // -> 참고: 최초 조준 회전값은 게임 시작 시(BeginPlay) 계산됩니다.
+        
+                // 델타 조준 회전값의 좌우 회전값(Yaw)을 AO_Yaw에 저장합니다.
+                // (AO = Aim Offset, 조준 오프셋)
+        
+                // 만약 현재 회전 상태가 '회전하지 않음(NotTurning)'이라면
+                // {
+                //     InterpAO_Yaw 값을 현재 AO_Yaw 값으로 설정합니다.
+                // }
+        
+                // TurnInPlace() 함수를 실행합니다.
+                // -> 이 함수는 InterpAO_Yaw 값을 0으로 서서히 보간(부드럽게 감소)시킵니다.
+            }
+        
+	// 3. 달리는 중이거나 점프 중일 때 (이동 상태)
+            // if (달리는 중 || 점프 중)
+            {
+                // 최초 조준 회전값을 현재의 실제 조준 회전값으로 초기화합니다.
+                // AO_Yaw 값을 0으로 만듭니다.
+            }
+        
+	// 4. 꽃게걸음(Strafing) 블렌드 스페이스에 전달할 이동 오프셋 Yaw 계산
+            // 기본 조준 회전값(Base Aim Rotation)을 가져옵니다.
+            // 이동 회전값(Movement Rotation)을 가져옵니다. (이것은 현재 속도(Velocity)의 방향입니다.)
+            // 이동 오프셋 Yaw(Movement Offset Yaw) = 이동 회전값과 조준 회전값의 차이(Delta)를 계산합니다.
+            
+            // 현재 상태를 '회전하지 않음(NotTurning)'으로 설정합니다.
+		
+}
+
+// Turn In Place
+	// if AO_Yaw > 90
+		// TurningStatus = Right
+	// else if AO_Yaw < -90
+		// TurningStatus = Left
+	// if TurningStatus != NotTurning ( in other words, we are turning left or right )
+		// Interpolate InterpAO_Yaw down to zero.
+		// AO_Yaw = InterpAO_Yaw
+		// if Abs(AO_Yaw) < 5.f
+			// TurningStatus = NotTurning
+			// reset initial aim rotation to our actual aim rotation
+			
+// --- 제자리 회전 처리 함수 (Turn In Place) 내부 로직 ---
+	// 만약 AO_Yaw 값이 90도보다 크다면
+	// {
+	//     회전 상태(TurningStatus) = 오른쪽(Right)으로 설정합니다.
+	// }
+	// 그렇지 않고 만약 AO_Yaw 값이 -90도보다 작다면
+	// {
+	//     회전 상태(TurningStatus) = 왼쪽(Left)으로 설정합니다.
+	// }
+
+	// 만약 회전 상태가 '회전하지 않음'이 아니라면 (즉, 왼쪽이나 오른쪽으로 회전 중이라면)
+	// {
+	//     InterpAO_Yaw 값을 0을 향해 서서히 줄여나갑니다(보간).
+	//     AO_Yaw 값을 현재 줄어들고 있는 InterpAO_Yaw 값으로 업데이트합니다.
+
+	//     만약 AO_Yaw의 절대값(Abs)이 5도 미만으로 떨어지면 (회전이 거의 끝났다면)
+	//     {
+	//         회전 상태(TurningStatus) = 회전하지 않음(NotTurning)으로 설정합니다.
+	//         최초 조준 회전값을 현재의 실제 조준 회전값으로 다시 초기화합니다.
+	//     }
+	// }
 
 void AHeroCharacter::CalculateFABRIKSocketTransform()
 {
@@ -126,6 +230,8 @@ void AHeroCharacter::CalculateFABRIKSocketTransform()
 		FABRIK_SocketTransform.SetRotation(OutRotation.Quaternion());
 	}
 }
+
+
 
 void AHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
