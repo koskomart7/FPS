@@ -70,8 +70,13 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="FPS|TurnInPlace")
 	float AO_Yaw;
 	
+	UPROPERTY(BlueprintReadOnly, Category="FPS|Strafing")
+	float MovementOffsetYaw;
+	
 	UPROPERTY(BlueprintReadOnly, Category="FPS|TurnInPlace")
 	ETurningInPlace TurningStatus;
+
+	
 	
 private:
 	
@@ -83,7 +88,8 @@ private:
 	void Input_Aim_Released();
 	
 	void CalculateFABRIKSocketTransform();
-	void CalculateTurnInPlaceParameters();
+	void CalculateTurnInPlaceParameters(float DeltaTime);
+	void TurnInPlace(float DeltaTime);
 	
 	// Character 내부 계산값
 	FRotator StartingAimRotation;

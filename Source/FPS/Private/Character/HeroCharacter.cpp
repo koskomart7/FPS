@@ -102,11 +102,11 @@ void AHeroCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	CalculateTurnInPlaceParameters();
+	CalculateTurnInPlaceParameters(DeltaTime);
 	CalculateFABRIKSocketTransform();
 }
 
-void AHeroCharacter::CalculateTurnInPlaceParameters()
+void AHeroCharacter::CalculateTurnInPlaceParameters(float DeltaTime)
 {
 	FVector Velocity = GetVelocity();
 	Velocity.Z = 0.f;
@@ -128,7 +128,26 @@ void AHeroCharacter::CalculateTurnInPlaceParameters()
 			InterpAO_Yaw = AO_Yaw;
 		}
 		
+		TurnInPlace(DeltaTime);
 	}
+	
+	if (Speed > 0.f || bIsInAir)
+	{
+		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		
+		AO_Yaw = 0.f;
+		
+		FRotator AimRotation = GetBaseAimRotation();
+		FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(GetVelocity());
+		
+		MovementOffsetYaw = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation).Yaw;
+		
+		TurningStatus = ETurningInPlace::NotTurning;
+	}
+	
+	// 위의 모든 로직 계산후 애니메이션에서 방향이 반대로 나타나는것을 수정하기 위함	
+	AO_Yaw *= -1.f;
+	
 	
 	// Get velocity, see if it's zero
 	// See if we are falling
@@ -189,7 +208,38 @@ void AHeroCharacter::CalculateTurnInPlaceParameters()
             // 이동 오프셋 Yaw(Movement Offset Yaw) = 이동 회전값과 조준 회전값의 차이(Delta)를 계산합니다.
             
             // 현재 상태를 '회전하지 않음(NotTurning)'으로 설정합니다.
+}
+
+void AHeroCharacter::TurnInPlace(float DeltaTime)
+{
+	if (AO_Yaw > 90.f)
+	{
+		TurningStatus = ETurningInPlace::Right;
+	}
+	else if (AO_Yaw < -90.f)
+	{
+		TurningStatus = ETurningInPlace::Left;
+	}
+	
+	// 왼쪽이나 오른쪽으로 회전중이라면
+	if (TurningStatus != ETurningInPlace::NotTurning)
+	{
+		InterpAO_Yaw = FMath::FInterpTo(
+			InterpAO_Yaw,
+			0.f,
+			DeltaTime,
+			4.f
+			);
 		
+		AO_Yaw = InterpAO_Yaw;
+		
+		if (FMath::Abs(AO_Yaw) < 5.f)
+		{
+			TurningStatus = ETurningInPlace::NotTurning;
+			
+			StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
+	}
 }
 
 // Turn In Place
