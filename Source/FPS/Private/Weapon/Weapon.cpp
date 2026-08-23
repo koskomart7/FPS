@@ -3,9 +3,12 @@
 
 #include "Weapon/Weapon.h"
 
+#include "KismetTraceUtils.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "FPS/FPS.h"
 #include "GameFramework/Pawn.h"
 #include "Interfaces/PlayerInterface.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -30,6 +33,7 @@ AWeapon::AWeapon()
 	Mesh3P->SetHiddenInGame(true);		// 장착 되지 않는 재고 무기를 숨기기 위해
 	
 	AimFOV = 65.0f;
+	TraceRadius = 5.f;
 }
 
 void AWeapon::OnRep_Instigator()
@@ -69,6 +73,58 @@ void AWeapon::AttachToOwningPawn() const
 	Mesh1P->AttachToComponent(PawnMesh1P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
 	Mesh3P->AttachToComponent(PawnMesh3P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
 
+}
+
+void AWeapon::WeaponTrace(FHitResult& OutHit, float TraceLenght)
+{
+	FCollisionQueryParams QueryParams;
+	QueryParams.bReturnPhysicalMaterial = true;
+	QueryParams.AddIgnoredActor(GetOwner());	// 자기 자신을 Trace 대상에서 제외
+	
+	// 어떤 Object Type을 맞출 것인가
+	FCollisionResponseParams ResponseParams;
+	// 모든 채널 Ignore
+	ResponseParams.CollisionResponse.SetAllChannels(ECR_Ignore);
+	// 필요한 채널만 block
+	ResponseParams.CollisionResponse.SetResponse(ECC_Pawn, ECR_Block);
+	ResponseParams.CollisionResponse.SetResponse(ECC_WorldStatic, ECR_Block);
+	ResponseParams.CollisionResponse.SetResponse(ECC_WorldDynamic, ECR_Block);
+	ResponseParams.CollisionResponse.SetResponse(ECC_PhysicsBody, ECR_Block);
+	
+	ensure(GetInstigator());
+	if (APlayerController* PC = Cast<APlayerController>(GetInstigator()->GetController()); IsValid(PC))
+	{
+		FVector EyesWorldLocation;
+		FRotator EyesWorldRotation;
+		PC->GetActorEyesViewPoint(EyesWorldLocation, EyesWorldRotation);
+		const FVector EyesWorldDirection = UKismetMathLibrary::GetForwardVector(EyesWorldRotation);
+		
+		const FVector Start = EyesWorldLocation;
+		const FVector End = Start + EyesWorldDirection * TraceLenght;
+		
+		const bool bHit = GetWorld()->SweepSingleByChannel(
+			OutHit,
+			Start,
+			End,
+			FQuat::Identity,
+			FPSTraceChannels::ECC_Weapon,
+			FCollisionShape::MakeSphere(TraceRadius),
+			QueryParams,
+			ResponseParams);
+		
+		DrawDebugSphereTraceSingle(
+			GetWorld(),
+			Start,
+			End,
+			TraceRadius,
+			EDrawDebugTrace::ForDuration,
+			bHit,
+			OutHit,
+			FColor::Green,
+			FColor::Red,
+			5.f);
+	}
+	
 }
 
 void AWeapon::BeginPlay()

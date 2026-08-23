@@ -12,6 +12,8 @@
  */
 
 class UAnimSequence;
+class UBlendSpace;
+class UAnimMontage;
 
 USTRUCT(BlueprintType)
 struct FPlayerAnims
@@ -47,6 +49,21 @@ struct FPlayerAnims
 	TObjectPtr<UBlendSpace> Strafe_Crouching;
 };
 
+USTRUCT(BlueprintType)
+struct FMontageData
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> EquipMontage = nullptr;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> ReloadMontage = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> FireMontage = nullptr;
+};
+
 
 
 UCLASS()
@@ -60,9 +77,19 @@ public:
 	UPROPERTY(EditAnywhere, Category = "FPS|WeaponData|Weapons")
 	TMap<FGameplayTag, FName> GripPoints;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="FPS|WeaponData|Weapons")
+	TMap<FGameplayTag, FMontageData> WeaponMontages;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= "FPS|WeaponData|FirstPerson")
 	TMap<FGameplayTag, FPlayerAnims> FirstPersonAnims;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= "FPS|WeaponData|ThirdPerson")
 	TMap<FGameplayTag, FPlayerAnims> ThirdPersonAnims;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FPS|WeaponData|FirstPerson")
+	TMap<FGameplayTag, FMontageData> FirstPersonMontages;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FPS|WeaponData|ThirdPerson")
+	TMap<FGameplayTag, FMontageData> ThirdPersonMontages;
+	
 };

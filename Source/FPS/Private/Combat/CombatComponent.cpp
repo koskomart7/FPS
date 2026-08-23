@@ -2,7 +2,13 @@
 
 
 #include "Combat/CombatComponent.h"
+
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Data/WeaponData.h"
 #include "GameFramework/Pawn.h"
+#include "Interfaces/PlayerInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Weapon/Weapon.h"
 
@@ -12,7 +18,8 @@ UCombatComponent::UCombatComponent()
 	
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// ...
+	
+	TraceLength = 20'000;
 }
 
 
@@ -21,7 +28,7 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// ...
+	
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -47,23 +54,81 @@ void UCombatComponent::Initiate_CycleWeapon()
 
 void UCombatComponent::Initiate_FireWeapon_Pressed()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_FireWeapon_Pressed"),
-		false);	
+	Local_FireWeapon();
 }
+
+void UCombatComponent::Local_FireWeapon()
+{
+	if (!IsValid(CurrentWeapon)) return;
+	ensure(IsValid(WeaponData));
+	
+	UAnimMontage* Montage1P = WeaponData->FirstPersonMontages.FindChecked(CurrentWeapon->WeaponType).FireMontage;
+	USkeletalMeshComponent* Mesh1P = IPlayerInterface::Execute_GetMesh1P(GetOwner());
+	if (IsValid(Montage1P) && IsValid(Mesh1P))
+	{
+		Mesh1P->GetAnimInstance()->Montage_Play(Montage1P);
+	}
+	
+	FHitResult Hit;
+	CurrentWeapon->WeaponTrace(Hit, TraceLength);
+	
+	Server_FireWeapon();
+}
+
+void UCombatComponent::Server_FireWeapon_Implementation()
+{
+	Multicast_FireWeapon();
+}
+
+void UCombatComponent::Multicast_FireWeapon_Implementation()
+{
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+	if (OwningPawn->IsLocallyControlled())
+	{
+		// do locally-controlled stuff
+	}
+	else
+	{
+		ensure(IsValid(WeaponData));
+		
+		UAnimMontage* Montage3P = WeaponData->ThirdPersonMontages.FindChecked(CurrentWeapon->WeaponType).FireMontage;
+		USkeletalMeshComponent* Mesh3P = IPlayerInterface::Execute_GetMesh3P(GetOwner());
+		if (IsValid(Montage3P) && IsValid(Mesh3P))
+		{
+			Mesh3P->GetAnimInstance()->Montage_Play(Montage3P);
+		}
+	}
+}
+
 
 void UCombatComponent::Initiate_FireWeapon_Released()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_FireWeapon_Released"),
-		false);	
+	
 }
+
+// Local_FireWeapon
+	// play the fire weapon montage for the first-person mesh
+	// Server_FireWeapon()
+
+// Server_FireWeapon
+	// Multicast_FireWeapon()
+
+// Multicast_FireWeapon()
+	// if we are NOT locally controlled
+	// play the fire montage on the 3rd person mesh
+
+// ======== 한국어 의사코드 ==============
+
+// Local_FireWeapon
+	// 1인칭 메시에 대한 발사 무기 몽타주를 재생합니다.
+	// Server_FireWeapon()
+
+// Server_FireWeapon
+	// Multicast_FireWeapon()
+
+// Multicast_FireWeapon()
+	// 로컬로 제어되지 않는 경우
+	// 3인칭 메시에 발사 몽타주를 재생
 
 void UCombatComponent::Initiate_ReloadWeapon()
 {
@@ -97,6 +162,8 @@ void UCombatComponent::Local_Aim(bool bPressed)
 {
 	bAiming = bPressed;
 }
+
+
 
 void UCombatComponent::Equip(AWeapon* Weapon)
 {
@@ -157,6 +224,8 @@ AWeapon* UCombatComponent::SpawnWeapon(TSubclassOf<AWeapon> WeaponClass) const
 	return GetWorld()->SpawnActor<AWeapon>(WeaponClass, SpawnInfo);
 	
 }
+
+
 
 
 

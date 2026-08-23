@@ -53,11 +53,10 @@ public:
 	
 protected:
 	
-	
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|Weapon")
+	float TraceLength;
 
 private:
-	
-	
 	
 	// 마지막 무기를 숨기고 비활성화 할 때 강력 ( 교체관련 )
 	UFUNCTION()
@@ -78,6 +77,13 @@ private:
 	UFUNCTION(Server, Reliable)
 	void Server_Aim(bool bPressed);
 	
-	void Local_Aim(bool bPressed);
+	UFUNCTION(Server, Reliable)
+	void Server_FireWeapon();
 	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_FireWeapon();
+	
+	// Local 함수 
+	void Local_Aim(bool bPressed);
+	void Local_FireWeapon();
 };
