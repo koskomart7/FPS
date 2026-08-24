@@ -34,6 +34,8 @@ AWeapon::AWeapon()
 	
 	AimFOV = 65.0f;
 	TraceRadius = 5.f;
+	FireTime = 0.1f;
+	
 }
 
 void AWeapon::OnRep_Instigator()
@@ -97,8 +99,8 @@ void AWeapon::WeaponTrace(FHitResult& OutHit, float TraceLenght)
 		FVector EyesWorldLocation;
 		FRotator EyesWorldRotation;
 		PC->GetActorEyesViewPoint(EyesWorldLocation, EyesWorldRotation);
-		const FVector EyesWorldDirection = UKismetMathLibrary::GetForwardVector(EyesWorldRotation);
 		
+		const FVector EyesWorldDirection = UKismetMathLibrary::GetForwardVector(EyesWorldRotation);
 		const FVector Start = EyesWorldLocation;
 		const FVector End = Start + EyesWorldDirection * TraceLenght;
 		
@@ -112,7 +114,12 @@ void AWeapon::WeaponTrace(FHitResult& OutHit, float TraceLenght)
 			QueryParams,
 			ResponseParams);
 		
-		DrawDebugSphereTraceSingle(
+		if (!bHit)
+		{
+			OutHit.ImpactPoint = End;
+		}
+		
+		/*DrawDebugSphereTraceSingle(
 			GetWorld(),
 			Start,
 			End,
@@ -122,9 +129,15 @@ void AWeapon::WeaponTrace(FHitResult& OutHit, float TraceLenght)
 			OutHit,
 			FColor::Green,
 			FColor::Red,
-			5.f);
+			5.f);*/
 	}
 	
+}
+
+void AWeapon::Local_Fire(const FVector& ImpactPoint, const FVector& ImpactNormal,
+	TEnumAsByte<EPhysicalSurface> ImpactSurfaceType, bool bIsFirstPerson)
+{
+	FireEffects(ImpactPoint, ImpactNormal, ImpactSurfaceType, bIsFirstPerson);
 }
 
 void AWeapon::BeginPlay()

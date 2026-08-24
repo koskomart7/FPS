@@ -58,6 +58,10 @@ protected:
 
 private:
 	
+	bool bTriggerPressed;
+	FTimerHandle FireTimer;
+	void FireTimerFinished();
+	
 	// 마지막 무기를 숨기고 비활성화 할 때 강력 ( 교체관련 )
 	UFUNCTION()
 	void OnRep_CurrentWeapon(AWeapon* LastWeapon);	// 파라미터 = 이전값 , 복제 직전의 옛 값이 전달
@@ -78,10 +82,10 @@ private:
 	void Server_Aim(bool bPressed);
 	
 	UFUNCTION(Server, Reliable)
-	void Server_FireWeapon();
+	void Server_FireWeapon(const FHitResult& Hit);
 	
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_FireWeapon();
+	void Multicast_FireWeapon(const FHitResult& Hit);
 	
 	// Local 함수 
 	void Local_Aim(bool bPressed);

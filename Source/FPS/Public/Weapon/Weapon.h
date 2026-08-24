@@ -7,6 +7,16 @@
 #include "GameFramework/Actor.h"
 #include "Weapon.generated.h"
 
+enum EPhysicalSurface : int;
+
+UENUM(BlueprintType)
+enum class EFireType : uint8 
+{
+	Auto UMETA(DisplayName = "Automatic"),
+	SemiAuto UMETA(DisplayName = "SemiAutomatic")
+};
+
+
 UCLASS()
 class FPS_API AWeapon : public AActor
 {
@@ -29,20 +39,40 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="FPS|Trace")
 	float TraceRadius;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="FPS|FireType")
+	EFireType FireType;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="FPS|FireType")
+	float FireTime;
+	
+	
+	void Local_Fire(
+		const FVector& ImpactPoint, 
+		const FVector& ImpactNormal, 
+		TEnumAsByte<EPhysicalSurface> ImpactSurfaceType, 
+		bool bIsFirstPerson
+		);
+	
 protected:
 	virtual void BeginPlay() override;
 
-	
-	
-private:
+	UFUNCTION(BlueprintImplementableEvent)
+	void FireEffects(
+		const FVector& ImpactPoint, 
+		const FVector& ImpactNormal,
+		EPhysicalSurface ImpactSurfaceType,
+		bool bIsFirstPerson
+		);
 	
 	// 1인칭 메쉬
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FPS|Weapon")
 	TObjectPtr<USkeletalMeshComponent> Mesh1P;
 	
 	// 3인칭 메쉬
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FPS|Weapon")
 	TObjectPtr<USkeletalMeshComponent> Mesh3P;
+	
+private:
 	
 	// 메쉬 가시성 설정 함수 
 	void SetMeshVisibilities(APawn* OwingPawn) const;
