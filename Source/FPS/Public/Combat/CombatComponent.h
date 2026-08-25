@@ -67,7 +67,7 @@ private:
 	void OnRep_CurrentWeapon(AWeapon* LastWeapon);	// 파라미터 = 이전값 , 복제 직전의 옛 값이 전달
 	
 	// 인벤토리 배열 선언
-	// 무기 포인터를 디스크에 저장할 수 없다 ( 런타임에만 의미 있는 상태 )
+	// Transient - 무기 포인터를 디스크에 저장할 수 없다 ( 런타임에만 의미 있는 상태 )
 	UPROPERTY(Transient, Replicated)
 	TArray<AWeapon*> Inventory;
 	
@@ -85,7 +85,7 @@ private:
 	void Server_FireWeapon(const FHitResult& Hit);
 	
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_FireWeapon(const FHitResult& Hit);
+	void Multicast_FireWeapon(const FHitResult& Hit, int32 AuthAmmo);
 	
 	// Local 함수 
 	void Local_Aim(bool bPressed);

@@ -57,9 +57,14 @@ void UCombatComponent::Initiate_CycleWeapon()
 
 void UCombatComponent::Initiate_FireWeapon_Pressed()
 {
+	if (!IsValid(CurrentWeapon)) return;
+	
 	bTriggerPressed = true;
 	
-	Local_FireWeapon();
+	if (CurrentWeapon->Ammo > 0)
+	{
+		Local_FireWeapon();
+	}
 }
 
 void UCombatComponent::Local_FireWeapon()
@@ -99,7 +104,7 @@ void UCombatComponent::FireTimerFinished()
 {
 	if (!IsValid(CurrentWeapon)) return;
 	
-	if (bTriggerPressed && CurrentWeapon->FireType == EFireType::Auto)
+	if (bTriggerPressed && CurrentWeapon->FireType == EFireType::Auto && CurrentWeapon->Ammo > 0)
 	{
 		Local_FireWeapon();
 	}
@@ -107,15 +112,25 @@ void UCombatComponent::FireTimerFinished()
 
 void UCombatComponent::Server_FireWeapon_Implementation(const FHitResult& Hit)
 {
-	Multicast_FireWeapon(Hit);
+	
+	if (!IsValid(CurrentWeapon)) return;
+	
+	// Listen Server Host의 중복 Ammo 감소 방지 - 예외처리
+	// 내가 방장이 아니거나, 내가 직접 조종하는 캐릭터가 아니라면 서버에서 총을 쏴라
+	if (GetNetMode() != NM_ListenServer || !Cast<APawn>(GetOwner())->IsLocallyControlled())
+	{
+		CurrentWeapon->Auth_Fire();
+	}
+	
+	Multicast_FireWeapon(Hit, CurrentWeapon->Ammo);
 }
 
-void UCombatComponent::Multicast_FireWeapon_Implementation(const FHitResult& Hit)
+void UCombatComponent::Multicast_FireWeapon_Implementation(const FHitResult& Hit, int32 AuthAmmo)
 {
 	APawn* OwningPawn = Cast<APawn>(GetOwner());
 	if (OwningPawn->IsLocallyControlled())
 	{
-		// do locally-controlled stuff
+		CurrentWeapon->Rep_Fire(AuthAmmo);
 	}
 	else
 	{

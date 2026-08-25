@@ -53,6 +53,21 @@ public:
 		bool bIsFirstPerson
 		);
 	
+	void Auth_Fire();
+	void Rep_Fire(int32 AuthAmmo);
+	
+	// Weapon Magazine이 담을 수 있는 최대 탄 수
+	UPROPERTY(EditAnywhere, Category="FPS|Ammo")
+	int32 MagCapacity;
+	
+	// 현재 이 Weapon Magazine 안에 들어 있는 탄 수
+	UPROPERTY(EditAnywhere, Category="FPS|Ammo")
+	int32 Ammo;
+	
+	// Weapon Type을 위해 Character가 처음 보유할 예비 탄약
+	UPROPERTY(EditAnywhere, Category="FPS|Ammo")
+	int32 StartingCarriedAmmo;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -76,6 +91,9 @@ private:
 	
 	// 메쉬 가시성 설정 함수 
 	void SetMeshVisibilities(APawn* OwingPawn) const;
+	
+	// 아직 Server가 확인하지 않은 Local Ammo 감소 횟수
+	int32 Sequence;
 	
 public:
 	// 각 메쉬에 대한 getter 함수 
