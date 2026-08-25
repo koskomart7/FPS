@@ -239,6 +239,7 @@ void UCombatComponent::SpawnInventory()
 	if(Inventory.Num() > 0)		// 빈 배열 인덱싱 방지
 	{
 		Equip(Inventory[0]);
+		InitializeWeaponWidgets();
 	}
 }
 
@@ -253,6 +254,17 @@ void UCombatComponent::DestroyInventory()
 	}
 }
 
+void UCombatComponent::InitializeWeaponWidgets() const
+{
+	if (IsValid(CurrentWeapon))
+	{
+		OnReticleChanged.Broadcast(CurrentWeapon->GetReticleDynamicMaterialInstance());
+		OnAmmoCounterChanged.Broadcast(CurrentWeapon->GetAmmoCounterDynamicMaterialInstance(), 
+			CurrentWeapon->Ammo, CurrentWeapon->MagCapacity);
+	}
+	
+}
+
 
 void UCombatComponent::OnRep_CurrentWeapon(AWeapon* LastWeapon)
 {
@@ -260,6 +272,10 @@ void UCombatComponent::OnRep_CurrentWeapon(AWeapon* LastWeapon)
 	if (!IsValid(CurrentWeapon)) return;
 
 	CurrentWeapon->AttachToOwningPawn();
+	
+	// 인터페이스 호출
+	IPlayerInterface::Execute_WeaponReplicated(GetOwner());
+	InitializeWeaponWidgets();
 }
 
 

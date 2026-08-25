@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "Weapon.generated.h"
 
+class UMaterialInstanceDynamic;
 enum EPhysicalSurface : int;
 
 UENUM(BlueprintType)
@@ -95,8 +96,27 @@ private:
 	// 아직 Server가 확인하지 않은 Local Ammo 감소 횟수
 	int32 Sequence;
 	
+	// UI 관련 머터리얼
+	UPROPERTY(EditDefaultsOnly, Category="FPS|Weapon")
+	TObjectPtr<UMaterialInterface> ReticleMaterial;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|Weapon")
+	TObjectPtr<UMaterialInterface> AmmoCounterMaterial;
+	
+	// 런타임 다이나믹 머터리얼 인스턴스
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> DynMatInst_Reticle;
+	
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> DynMatInst_AmmoCounter;
+	
+	
 public:
 	// 각 메쉬에 대한 getter 함수 
 	USkeletalMeshComponent* GetMesh1P() const;
 	USkeletalMeshComponent* GetMesh3P() const;
+	
+	// MID getter 함수 
+	UMaterialInstanceDynamic* GetReticleDynamicMaterialInstance();
+	UMaterialInstanceDynamic* GetAmmoCounterDynamicMaterialInstance();
 };

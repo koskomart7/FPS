@@ -8,10 +8,13 @@
 #include "ShooterTypes/ShooterTypes.h"
 #include "HeroCharacter.generated.h"
 
+class AWeapon;
 class UCombatComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class UInputAction;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponFirstReplicated, AWeapon*, Weapon);
 
 UCLASS()
 class FPS_API AHeroCharacter : public ACharacter, public IPlayerInterface
@@ -33,6 +36,9 @@ public:
 	
 	virtual void PossessedBy(AController* NewController) override;
 	
+	// Player State fallback 
+	virtual void OnRep_PlayerState() override;
+	
 	/** 플레이어 인터페이스 구현 **/
 #pragma region Player Interface Section
 
@@ -40,6 +46,9 @@ public:
 	
 	virtual USkeletalMeshComponent* GetMesh3P_Implementation() const override;
 	virtual USkeletalMeshComponent* GetMesh1P_Implementation() const override;
+	
+	virtual void WeaponReplicated_Implementation() override;
+	virtual AWeapon* GetCurrentWeapon_Implementation() override;
 	
 #pragma endregion 
 	
@@ -51,6 +60,13 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	bool HasCurrentWeapon() const;
+	
+	// 델리게이트
+	UPROPERTY(BlueprintAssignable)
+	FWeaponFirstReplicated OnWeaponFirstReplicated;
+	
+	// 무기가 처음 복제 되었는지 여부에 대한 getter
+	bool HasWeaponFirstReplicated() const { return bWeaponFirstReplicated; }
 	
 protected:
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
@@ -95,7 +111,8 @@ private:
 	FRotator StartingAimRotation;
 	float InterpAO_Yaw;
 	
-	
+	// 무기가 처음 사용되는 경우 클라이언트 추적 목적
+	bool bWeaponFirstReplicated;
 	
 	
 	

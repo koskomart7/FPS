@@ -55,6 +55,7 @@ AHeroCharacter::AHeroCharacter()
 	DefaultFOV = 90.0f;
 	
 	TurningStatus = ETurningInPlace::NotTurning;
+	bWeaponFirstReplicated = false;
 }
 
 
@@ -241,8 +242,8 @@ void AHeroCharacter::TurnInPlace(float DeltaTime)
 		}
 	}
 }
-
-// Turn In Place
+/* 
+// Turn In Place - 의사코드
 	// if AO_Yaw > 90
 		// TurningStatus = Right
 	// else if AO_Yaw < -90
@@ -275,7 +276,7 @@ void AHeroCharacter::TurnInPlace(float DeltaTime)
 	//         최초 조준 회전값을 현재의 실제 조준 회전값으로 다시 초기화합니다.
 	//     }
 	// }
-
+*/
 void AHeroCharacter::CalculateFABRIKSocketTransform()
 {
 	if (IsValid(Combat) 
@@ -336,6 +337,16 @@ void AHeroCharacter::PossessedBy(AController* NewController)
 	}
 }
 
+void AHeroCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	if (IsValid(Combat))
+	{
+		Combat->InitializeWeaponWidgets();
+	}
+}
+
 // 무기 부착 인터페이스
 FName AHeroCharacter::GetWeaponAttachPoint_Implementation(const FGameplayTag& WeaponType) const
 {
@@ -353,6 +364,19 @@ USkeletalMeshComponent* AHeroCharacter::GetMesh1P_Implementation() const
 	return Mesh1P;
 }
 
+void AHeroCharacter::WeaponReplicated_Implementation()
+{
+	if (!bWeaponFirstReplicated)
+	{
+		bWeaponFirstReplicated = true;
+		OnWeaponFirstReplicated.Broadcast(Combat->CurrentWeapon);
+	}
+}
+
+AWeapon* AHeroCharacter::GetCurrentWeapon_Implementation()
+{
+	return Combat->CurrentWeapon;
+}
 
 
 void AHeroCharacter::Input_CycleWeapon()

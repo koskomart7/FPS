@@ -4,11 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
 #include "CombatComponent.generated.h"
 
-
+class UMaterialInstanceDynamic;
 class UWeaponData;
 class AWeapon;
+
+// UI 정보 전달용 델리게이트 선언
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReticleChanged, UMaterialInstanceDynamic*, ReticleDynMatInst);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAmmoCounterChanged, UMaterialInstanceDynamic*, AmmoCounterDynMatInst, 
+	int32, RoundsCurrent, int32, RoundsMax);
+
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class FPS_API UCombatComponent : public UActorComponent
@@ -24,6 +31,11 @@ public:
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
+	// UI에서 Pawn 타입 의존성 줄이기 - static 헬퍼함수
+	UFUNCTION(BlueprintPure, Category = "FPS|Combat")
+	static UCombatComponent* FindCombatComponent(const AActor* Actor)
+	{ return (IsValid(Actor) ? Actor->FindComponentByClass<UCombatComponent>() : nullptr ); }
+	
 	// 인벤토리의 다음 무기 사이클
 	void Initiate_CycleWeapon();
 	void Initiate_FireWeapon_Pressed();
@@ -31,6 +43,14 @@ public:
 	void Initiate_ReloadWeapon();
 	void Initiate_Aim_Pressed();
 	void Initiate_Aim_Released();
+	
+	// 무기 조준점, 총알개수 UI 전달용 델리게이트 규격 정의
+	UPROPERTY(BlueprintAssignable)
+	FReticleChanged OnReticleChanged;
+	
+	UPROPERTY(BlueprintAssignable)
+	FAmmoCounterChanged OnAmmoCounterChanged;
+	
 	
 	// 무기데이터
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly ,Category = "FPS|Weapons")
@@ -50,6 +70,9 @@ public:
 	// 현재 무기 , 복제 + 클라 도착 시 콜백
 	UPROPERTY(Transient, BlueprintReadOnly, ReplicatedUsing=OnRep_CurrentWeapon)
 	TObjectPtr<AWeapon> CurrentWeapon; 
+	
+	// 무기 위젯 초기화
+	void InitializeWeaponWidgets() const;
 	
 protected:
 	
