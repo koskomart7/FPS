@@ -44,6 +44,10 @@ private:
 	// 총 발사시 변환 인자
 	float _BaseCornerScaleFactor_RoundFired;
 	float _BaseShapeCutFactor_RoundFired;
+	// 총 조준시 변환 인자
+	float _BaseCornerScaleFactor_Aiming;
+	float _BaseShapeCutFactor_Aiming;
+	bool bAiming;
 	
 	UFUNCTION()
 	void OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn);
@@ -59,4 +63,7 @@ private:
 	
 	UFUNCTION()
 	void OnRoundFired(int32 RoundsCurrent, int32 RoundsMax);
+	
+	UFUNCTION()
+	void OnAimingStatusChanged(bool bIsAiming);
 };
