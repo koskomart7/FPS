@@ -369,13 +369,19 @@ void AHeroCharacter::WeaponReplicated_Implementation()
 	if (!bWeaponFirstReplicated)
 	{
 		bWeaponFirstReplicated = true;
-		OnWeaponFirstReplicated.Broadcast(Combat->CurrentWeapon);
+		OnWeaponFirstReplicated.Broadcast(Combat->CurrentWeapon, Combat->bHitPlayer);
 	}
 }
 
 AWeapon* AHeroCharacter::GetCurrentWeapon_Implementation()
 {
 	return Combat->CurrentWeapon;
+}
+
+int32 AHeroCharacter::GetReserveAmmo_Implementation() const
+{
+	// CombatComponent가 관리하는 현재 Weapon의 Reserve Snapshot을 반환한다.
+	return Combat->CurrentReserveAmmo;
 }
 
 

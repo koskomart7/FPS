@@ -50,6 +50,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category="FPS|Reticle")
 	FReticleParams ReticleParams;
 	
+	// Icon 데이터의 소유권
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|Icon")
+	TObjectPtr<UMaterialInterface> WeaponIcon;
+	
 	void Local_Fire(
 		const FVector& ImpactPoint, 
 		const FVector& ImpactNormal, 

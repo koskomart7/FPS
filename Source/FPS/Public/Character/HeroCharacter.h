@@ -14,7 +14,7 @@ class UCameraComponent;
 class USpringArmComponent;
 class UInputAction;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponFirstReplicated, AWeapon*, Weapon);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FWeaponFirstReplicated, AWeapon*, Weapon, bool, bTargetingPlayer);
 
 UCLASS()
 class FPS_API AHeroCharacter : public ACharacter, public IPlayerInterface
@@ -49,6 +49,8 @@ public:
 	
 	virtual void WeaponReplicated_Implementation() override;
 	virtual AWeapon* GetCurrentWeapon_Implementation() override;
+	
+	virtual int32 GetReserveAmmo_Implementation() const override;
 	
 #pragma endregion 
 	

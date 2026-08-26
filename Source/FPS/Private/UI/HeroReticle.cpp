@@ -19,6 +19,7 @@ namespace Reticle
 {
 	const FName RoundedCornerScale = FName("RoundedCornerScale");
 	const FName ShapeCutThickness = FName("ShapeCutThickness");
+	const FName Inner_RGBA = FName("Inner_RGBA");
 }
 
 
@@ -33,6 +34,7 @@ void UHeroReticle::NativeOnInitialized()
 	_BaseCornerScaleFactor_Aiming = 0.f;
 	_BaseShapeCutFactor_Aiming = 0.f;
 	bAiming = false;
+	bTargetingPlayer = false;
 	
 	// Pawn이 바뀌는 경우 델리게이트 발송
 	GetOwningPlayer()->OnPossessedPawnChanged.AddDynamic(this, &ThisClass::OnPossessedPawnChanged);
@@ -40,6 +42,13 @@ void UHeroReticle::NativeOnInitialized()
 	// 캐릭터 소유자 확인
 	AHeroCharacter* HeroCharacter = Cast<AHeroCharacter>(GetOwningPlayer()->GetPawn());
 	if (!IsValid(HeroCharacter)) return;
+	
+	// CombatComp 캐싱
+	UCombatComponent* Combat = UCombatComponent::FindCombatComponent(HeroCharacter);
+	if (!IsValid(Combat))
+	{
+		return;
+	}
 	
 	// Pawn과 캐릭터 소유자 확인시 콜백 직접 호출 
 	OnPossessedPawnChanged(nullptr, HeroCharacter);
@@ -52,7 +61,7 @@ void UHeroReticle::NativeOnInitialized()
 		AWeapon* Weapon = IPlayerInterface::Execute_GetCurrentWeapon(HeroCharacter);
 		if (IsValid(Weapon))
 		{
-			OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
+			OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams, Combat->bHitPlayer);
 			OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 		}
 	}
@@ -65,7 +74,7 @@ void UHeroReticle::NativeOnInitialized()
 	{
 		AWeapon* Weapon = IPlayerInterface::Execute_GetCurrentWeapon(HeroCharacter);
 		if (!IsValid(Weapon)) return;
-		OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
+		OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams, Combat->bHitPlayer);
 		OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 	}
 }
@@ -74,15 +83,23 @@ void UHeroReticle::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 	
-	_BaseCornerScaleFactor_RoundFired = FMath::FInterpTo(_BaseCornerScaleFactor_RoundFired, 0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
-	_BaseShapeCutFactor_RoundFired = FMath::FInterpTo(_BaseShapeCutFactor_RoundFired, 0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
+	_BaseCornerScaleFactor_RoundFired = FMath::FInterpTo(_BaseCornerScaleFactor_RoundFired, 
+		0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
+	_BaseShapeCutFactor_RoundFired = FMath::FInterpTo(_BaseShapeCutFactor_RoundFired, 
+		0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
 	
 	_BaseCornerScaleFactor_Aiming =FMath::FInterpTo(_BaseCornerScaleFactor_Aiming, 
 		bAiming ? CurrentReticleParams.ScaleFactor_Aiming : CurrentReticleParams.ScaleFactor_NotAiming, InDeltaTime , CurrentReticleParams.AimingInterpSpeed);
 	_BaseShapeCutFactor_Aiming = FMath::FInterpTo(_BaseShapeCutFactor_Aiming, 
 		bAiming ? CurrentReticleParams.ShapeCutFactor_Aiming : CurrentReticleParams.ShapeCutFactor_NotAiming, InDeltaTime, CurrentReticleParams.AimingInterpSpeed);
 	
-	BaseCornerScaleFactor = _BaseCornerScaleFactor_RoundFired + _BaseCornerScaleFactor_Aiming;
+	// Targeting 상태에 따라 ScaleFactor FInterpTo
+	_BaseCornerScaleFactor_TargetingPlayer = FMath::FInterpTo(_BaseCornerScaleFactor_TargetingPlayer,
+		bTargetingPlayer ? CurrentReticleParams.ScaleFactor_Targeting : CurrentReticleParams.ScaleFactor_NotTargeting, 
+		InDeltaTime, CurrentReticleParams.TargetingPlayerInterpSpeed );
+	
+	
+	BaseCornerScaleFactor = _BaseCornerScaleFactor_RoundFired + _BaseCornerScaleFactor_Aiming + _BaseCornerScaleFactor_TargetingPlayer;
 	BaseShapeCutFactor = _BaseShapeCutFactor_RoundFired + _BaseShapeCutFactor_Aiming;
 	
 	if (CurrentReticle_DynMatInst.IsValid())
@@ -103,6 +120,7 @@ void UHeroReticle::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
 		OldPawnCombat->OnAmmoCounterChanged.RemoveDynamic(this, &ThisClass::OnAmmoCounterChanged);
 		OldPawnCombat->OnRoundFired.RemoveDynamic(this, &ThisClass::OnRoundFired);
 		OldPawnCombat->OnAimingStatusChanged.RemoveDynamic(this, &ThisClass::OnAimingStatusChanged);
+		OldPawnCombat->OnTargetingPlayerStatusChanged.RemoveDynamic(this, &ThisClass::OnTargetingPlayerStatusChanged);
 	}
 	
 	// Bind to delegates on the New Pawn's Combat Component
@@ -118,18 +136,19 @@ void UHeroReticle::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
 		NewPawnCombat->OnAmmoCounterChanged.AddDynamic(this, &ThisClass::OnAmmoCounterChanged);
 		NewPawnCombat->OnRoundFired.AddDynamic(this, &ThisClass::OnRoundFired);
 		NewPawnCombat->OnAimingStatusChanged.AddDynamic(this, &ThisClass::OnAimingStatusChanged);
+		NewPawnCombat->OnTargetingPlayerStatusChanged.AddDynamic(this, &ThisClass::OnTargetingPlayerStatusChanged);
 	}
 }
 
-void UHeroReticle::OnWeaponFirstReplicated(AWeapon* Weapon)
+void UHeroReticle::OnWeaponFirstReplicated(AWeapon* Weapon, bool bIsTargetingPlayer)
 {
 	// Get Dynamic Material Instances from the Weapon.
-	OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
+	OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams, bIsTargetingPlayer);
 	OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 		
 }
 
-void UHeroReticle::OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst, const FReticleParams& ReticleParams)
+void UHeroReticle::OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst, const FReticleParams& ReticleParams, bool bCurrentlyTargetingPlayer)
 {
 	
 	CurrentReticleParams = ReticleParams;
@@ -144,6 +163,9 @@ void UHeroReticle::OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst,
 	{
 		Image_Reticle->SetBrush(Brush);
 	}
+	
+	// MID가 바뀌면 현재 Traget State를 새 MID에 재적용 ( 무기 변경시 색상 상태 복원 )
+	OnTargetingPlayerStatusChanged(bCurrentlyTargetingPlayer);
 }
 
 void UHeroReticle::OnAmmoCounterChanged(UMaterialInstanceDynamic* AmmoCounterDynMatInst, int32 RoundsCurrent,
@@ -165,7 +187,7 @@ void UHeroReticle::OnAmmoCounterChanged(UMaterialInstanceDynamic* AmmoCounterDyn
 	}
 }
 
-void UHeroReticle::OnRoundFired(int32 RoundsCurrent, int32 RoundsMax)
+void UHeroReticle::OnRoundFired(int32 RoundsCurrent, int32 RoundsMax, int32 RoundsInReserve)
 {
 	_BaseCornerScaleFactor_RoundFired += CurrentReticleParams.ScaleFactor_RoundFired;
 	_BaseShapeCutFactor_RoundFired += CurrentReticleParams.ShapeCutFactor_RoundFired;
@@ -180,5 +202,16 @@ void UHeroReticle::OnRoundFired(int32 RoundsCurrent, int32 RoundsMax)
 void UHeroReticle::OnAimingStatusChanged(bool bIsAiming)
 {
 	bAiming = bIsAiming;
+}
+
+void UHeroReticle::OnTargetingPlayerStatusChanged(bool bTargeting)
+{
+	bTargetingPlayer = bTargeting;
+	if (CurrentReticle_DynMatInst.IsValid())
+	{
+		FLinearColor ReticleColor = bTargetingPlayer ? FLinearColor::Red : FLinearColor::White;
+		CurrentReticle_DynMatInst->SetVectorParameterValue(Reticle::Inner_RGBA, ReticleColor);
+	}
+	
 }
 

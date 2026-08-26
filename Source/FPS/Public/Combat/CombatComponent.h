@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
+#include "GameplayTagContainer.h"
 #include "CombatComponent.generated.h"
 
 class UMaterialInstanceDynamic;
@@ -12,11 +13,13 @@ class UWeaponData;
 class AWeapon;
 
 // UI 정보 전달용 델리게이트 선언
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FReticleChanged, UMaterialInstanceDynamic*, ReticleDynMatInst, const FReticleParams&, ReticleParams);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FReticleChanged, UMaterialInstanceDynamic*, ReticleDynMatInst, const FReticleParams&, ReticleParams, bool, bCurrentlyTargetingPlayer);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAmmoCounterChanged, UMaterialInstanceDynamic*, AmmoCounterDynMatInst, 
 	int32, RoundsCurrent, int32, RoundsMax);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FRoundFired, int32, RoundsCurrent, int32, RoundsMax);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FRoundFired, int32, RoundsCurrent, int32, RoundsMax, int32, RoundsInReserve);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAimingStatusChanged, bool, bIsAiming);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTargetingPlayerStatusChanged, bool, bIsAiming);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FCurrentReserveAmmoChanged, int32, RoundsInReserve, int32, RoundsInWeapon, UMaterialInterface*, WeaponIconMaterial);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class FPS_API UCombatComponent : public UActorComponent
@@ -58,6 +61,14 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FAimingStatusChanged OnAimingStatusChanged;
 	
+	// UI 조준 타겟팅용 델리게이트
+	UPROPERTY(BlueprintAssignable)
+	FTargetingPlayerStatusChanged OnTargetingPlayerStatusChanged;
+	
+	// 남은 예비탄약, 무기내 탄약 델리게이트
+	UPROPERTY(BlueprintAssignable)
+	FCurrentReserveAmmoChanged OnCurrentReserveAmmoChanged;
+	
 	// 무기데이터
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly ,Category = "FPS|Weapons")
 	TObjectPtr<UWeaponData> WeaponData;		
@@ -80,6 +91,12 @@ public:
 	// 무기 위젯 초기화
 	void InitializeWeaponWidgets() const;
 	
+	// 예비 탄약 - 네트워크 프로퍼티 업데이트 콜백함수
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentReserveAmmo)
+	int32 CurrentReserveAmmo;
+	
+	bool bHitPlayer;
+	
 protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "FPS|Weapon")
@@ -87,6 +104,10 @@ protected:
 
 private:
 	
+	// 서버 전용 예비탄약
+	TMap<FGameplayTag, int32> ReserveAmmo;
+	
+	bool bHitPlayerLastFrame;
 	bool bTriggerPressed;
 	FTimerHandle FireTimer;
 	void FireTimerFinished();
@@ -115,6 +136,9 @@ private:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_FireWeapon(const FHitResult& Hit, int32 AuthAmmo);
+	
+	UFUNCTION()
+	void OnRep_CurrentReserveAmmo();
 	
 	// Local 함수 
 	void Local_Aim(bool bPressed);
