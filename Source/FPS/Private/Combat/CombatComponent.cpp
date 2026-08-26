@@ -89,6 +89,8 @@ void UCombatComponent::Local_FireWeapon()
 	
 	CurrentWeapon->Local_Fire(Hit.ImpactPoint, Hit.ImpactNormal, ImpactSurfaceType, true);
 	
+	OnRoundFired.Broadcast(CurrentWeapon->Ammo, CurrentWeapon->MagCapacity);
+	
 	// 발사 타이머 설정
 	GetWorld()->GetTimerManager().SetTimer(
 		FireTimer, 
@@ -258,7 +260,7 @@ void UCombatComponent::InitializeWeaponWidgets() const
 {
 	if (IsValid(CurrentWeapon))
 	{
-		OnReticleChanged.Broadcast(CurrentWeapon->GetReticleDynamicMaterialInstance());
+		OnReticleChanged.Broadcast(CurrentWeapon->GetReticleDynamicMaterialInstance(), CurrentWeapon->ReticleParams);
 		OnAmmoCounterChanged.Broadcast(CurrentWeapon->GetAmmoCounterDynamicMaterialInstance(), 
 			CurrentWeapon->Ammo, CurrentWeapon->MagCapacity);
 	}

@@ -15,12 +15,21 @@ namespace Ammo
 	const FName Rounds_Max = FName("Rounds_Max");
 }
 
+namespace Reticle
+{
+	const FName RoundedCornerScale = FName("RoundedCornerScale");
+	const FName ShapeCutThickness = FName("ShapeCutThickness");
+}
+
+
 void UHeroReticle::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 	
 	Image_Reticle->SetRenderOpacity(0.f);
 	Image_AmmoCounter->SetRenderOpacity(0.f);
+	_BaseCornerScaleFactor_RoundFired = 0.f;
+	_BaseShapeCutFactor_RoundFired = 0.f;
 	
 	// Pawn이 바뀌는 경우 델리게이트 발송
 	GetOwningPlayer()->OnPossessedPawnChanged.AddDynamic(this, &ThisClass::OnPossessedPawnChanged);
@@ -40,7 +49,7 @@ void UHeroReticle::NativeOnInitialized()
 		AWeapon* Weapon = IPlayerInterface::Execute_GetCurrentWeapon(HeroCharacter);
 		if (IsValid(Weapon))
 		{
-			OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance());
+			OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
 			OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 		}
 	}
@@ -53,7 +62,7 @@ void UHeroReticle::NativeOnInitialized()
 	{
 		AWeapon* Weapon = IPlayerInterface::Execute_GetCurrentWeapon(HeroCharacter);
 		if (!IsValid(Weapon)) return;
-		OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance());
+		OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
 		OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 	}
 }
@@ -61,6 +70,18 @@ void UHeroReticle::NativeOnInitialized()
 void UHeroReticle::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	
+	_BaseCornerScaleFactor_RoundFired = FMath::FInterpTo(_BaseCornerScaleFactor_RoundFired, 0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
+	_BaseShapeCutFactor_RoundFired = FMath::FInterpTo(_BaseShapeCutFactor_RoundFired, 0.f, InDeltaTime, CurrentReticleParams.RoundFiredInterpSpeed);
+	
+	BaseCornerScaleFactor = _BaseCornerScaleFactor_RoundFired + .46;
+	BaseShapeCutFactor = _BaseShapeCutFactor_RoundFired -0.8;
+	
+	if (CurrentReticle_DynMatInst.IsValid())
+	{
+		CurrentReticle_DynMatInst->SetScalarParameterValue(Reticle::RoundedCornerScale, BaseCornerScaleFactor);
+		CurrentReticle_DynMatInst->SetScalarParameterValue(Reticle::ShapeCutThickness, BaseShapeCutFactor);
+	}
 }
 
 void UHeroReticle::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
@@ -72,6 +93,7 @@ void UHeroReticle::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
 	{
 		OldPawnCombat->OnReticleChanged.RemoveDynamic(this, &ThisClass::OnReticleChanged);
 		OldPawnCombat->OnAmmoCounterChanged.RemoveDynamic(this, &ThisClass::OnAmmoCounterChanged);
+		OldPawnCombat->OnRoundFired.RemoveDynamic(this, &ThisClass::OnRoundFired);
 	}
 	
 	// Bind to delegates on the New Pawn's Combat Component
@@ -82,24 +104,28 @@ void UHeroReticle::OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn)
 		// 초기 몇 프레임 동안 기본 UMG 머터리얼이 보이는 현상 방지
 		Image_Reticle->SetRenderOpacity(1.f);
 		Image_AmmoCounter->SetRenderOpacity(1.f);
+		
 		NewPawnCombat->OnReticleChanged.AddDynamic(this, &ThisClass::OnReticleChanged);
 		NewPawnCombat->OnAmmoCounterChanged.AddDynamic(this, &ThisClass::OnAmmoCounterChanged);
+		NewPawnCombat->OnRoundFired.AddDynamic(this, &ThisClass::OnRoundFired);
 	}
 }
 
 void UHeroReticle::OnWeaponFirstReplicated(AWeapon* Weapon)
 {
 	// Get Dynamic Material Instances from the Weapon.
-	OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance());
+	OnReticleChanged(Weapon->GetReticleDynamicMaterialInstance(), Weapon->ReticleParams);
 	OnAmmoCounterChanged(Weapon->GetAmmoCounterDynamicMaterialInstance(), Weapon->Ammo, Weapon->MagCapacity);
 		
 }
 
-void UHeroReticle::OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst)
+void UHeroReticle::OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst, const FReticleParams& ReticleParams)
 {
+	
+	CurrentReticleParams = ReticleParams;
+	
 	// Set the material on the actual reticle widget to the dyn mat inst
 	// 실제 조준선 위젯의 머티리얼을 dyn mat 인스턴스로 설정합니다.
-	
 	CurrentReticle_DynMatInst = ReticleDynMatInst;
 	
 	FSlateBrush Brush;
@@ -126,6 +152,18 @@ void UHeroReticle::OnAmmoCounterChanged(UMaterialInstanceDynamic* AmmoCounterDyn
 	if (Image_AmmoCounter)
 	{
 		Image_AmmoCounter->SetBrush(Brush);
+	}
+}
+
+void UHeroReticle::OnRoundFired(int32 RoundsCurrent, int32 RoundsMax)
+{
+	_BaseCornerScaleFactor_RoundFired += CurrentReticleParams.ScaleFactor_RoundFired;
+	_BaseShapeCutFactor_RoundFired += CurrentReticleParams.ShapeCutFactor_RoundFired;
+	
+	if (CurrentAmmoCounter_DynMatInst.IsValid())
+	{
+		CurrentAmmoCounter_DynMatInst->SetScalarParameterValue(Ammo::Rounds_Current, RoundsCurrent);
+		CurrentAmmoCounter_DynMatInst->SetScalarParameterValue(Ammo::Rounds_Max, RoundsMax);
 	}
 }
 

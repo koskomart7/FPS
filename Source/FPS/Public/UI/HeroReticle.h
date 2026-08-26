@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "ShooterTypes/ShooterTypes.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "HeroReticle.generated.h"
 
@@ -37,6 +38,13 @@ private:
 	TWeakObjectPtr<UMaterialInstanceDynamic> CurrentReticle_DynMatInst;
 	TWeakObjectPtr<UMaterialInstanceDynamic> CurrentAmmoCounter_DynMatInst;
 
+	FReticleParams CurrentReticleParams;
+	float BaseCornerScaleFactor;
+	float BaseShapeCutFactor;
+	// 총 발사시 변환 인자
+	float _BaseCornerScaleFactor_RoundFired;
+	float _BaseShapeCutFactor_RoundFired;
+	
 	UFUNCTION()
 	void OnPossessedPawnChanged(APawn* OldPawn, APawn* NewPawn);
 	
@@ -44,8 +52,11 @@ private:
 	void OnWeaponFirstReplicated(AWeapon* Weapon);
 	
 	UFUNCTION()
-	void OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst);
+	void OnReticleChanged(UMaterialInstanceDynamic* ReticleDynMatInst, const FReticleParams& ReticleParams);
 	
 	UFUNCTION()
 	void OnAmmoCounterChanged(UMaterialInstanceDynamic* AmmoCounterDynMatInst, int32 RoundsCurrent, int32 RoundsMax);
+	
+	UFUNCTION()
+	void OnRoundFired(int32 RoundsCurrent, int32 RoundsMax);
 };
