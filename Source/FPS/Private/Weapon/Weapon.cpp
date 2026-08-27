@@ -42,8 +42,9 @@ AWeapon::AWeapon()
 	StartingCarriedAmmo = 10;
 	Sequence = 0;
 	
-	// Inventory에 Spawn된 Weapon은 기본적으로 아직 손에 들고 있지 않은 상태로 시작한다.
-	WeaponStatus = EWeaponStatus::Unequipped;
+	// WeaponStatus는 Replicated State가 아니므로 
+	// 각 Machine에서 최초 CurrentWeapon을 바로 사용할 수 있게 기본값을 Idle로 둔다.
+	WeaponStatus = EWeaponStatus::Idle;
 }
 
 /*void AWeapon::OnRep_Instigator()
@@ -170,7 +171,12 @@ void AWeapon::Local_Fire(const FVector& ImpactPoint, const FVector& ImpactNormal
 	if (GetInstigator()->IsLocallyControlled())
 	{
 		Ammo = FMath::Clamp(Ammo-1, 0, MagCapacity);
-		++Sequence;
+		
+		// Client에서만 pending prediction shot 수를 증가시킨다.
+		if (!GetInstigator()->HasAuthority())
+		{
+			++Sequence;
+		}
 	}
 }
 
@@ -184,8 +190,13 @@ void AWeapon::Rep_Fire(int32 AuthAmmo)
 	if (GetInstigator()->IsLocallyControlled())
 	{
 		Ammo = AuthAmmo;
-		--Sequence;
-		Ammo -= Sequence;
+		
+		// 실제 Client Prediction을 사용한 경우에만 Sequence reconciliation을 수행한다.
+		if (!GetInstigator()->HasAuthority())
+		{
+			--Sequence;
+			Ammo -= Sequence;
+		}
 	}
 }
 

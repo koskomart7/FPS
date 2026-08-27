@@ -50,6 +50,10 @@ public:
 	
 	// Notify Callback
 	void Notify_CycleWeapon(); 
+	void Notify_ReloadWeapon();
+	
+	// 탄약 추가 로직
+	void AddAmmo(const FGameplayTag& WeaponType, int32 AmmoAmount);
 	
 	// 무기 조준점, 총알개수 UI 전달용 델리게이트 규격 정의
 	UPROPERTY(BlueprintAssignable)
@@ -170,4 +174,15 @@ private:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_CycleWeapon(int32 WeaponIndex);
+	
+	void Local_ReloadWeapon();
+	
+	UFUNCTION(Server, Reliable)
+	void Server_ReloadWeapon();
+	
+	UFUNCTION(Client, Reliable)
+	void Client_ReloadWeapon(int32 NewWeaponAmmo, int32 NewCarriedAmmo);
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ReloadWeapon();
 };

@@ -217,6 +217,105 @@ void UCombatComponent::Notify_CycleWeapon()
 	}
 }
 
+void UCombatComponent::Notify_ReloadWeapon()
+{
+	if (!IsValid(CurrentWeapon)) return;
+	
+	// Server / Listen Server / Standalone만 실제 Ammo 수치를 변경한다.
+	if (GetNetMode() == NM_ListenServer ||
+		GetNetMode() == NM_DedicatedServer ||
+		GetNetMode() == NM_Standalone)
+	{
+		// 현재 무기의 탄창 빈 공간과 남은 예비 탄약을 비교하여, 이번 재장전(또는 탄약 보충) 시 실제로 채워야 할 탄약의 양을 계산
+		const int32 EmptySpace = CurrentWeapon->MagCapacity - CurrentWeapon->Ammo;
+		const int32 AmountToRefill = FMath::Min(EmptySpace, CurrentReserveAmmo);
+		
+		// Reserve에서 필요한 만큼 Magazine으로 옮긴다.
+		CurrentWeapon->Ammo += AmountToRefill;
+		
+		ReserveAmmo[CurrentWeapon->WeaponType] = ReserveAmmo[CurrentWeapon->WeaponType] - AmountToRefill;
+		
+		CurrentReserveAmmo = ReserveAmmo[CurrentWeapon->WeaponType];
+		
+		// Owner에게 Server가 확정한 새 Ammo 값을 전달한다.
+		Client_ReloadWeapon(CurrentWeapon->Ammo, CurrentReserveAmmo);
+	}
+	
+	// Notify 지점부터 Reload가 Gameplay 상 완료된 것으로 본다.
+	CurrentWeapon->WeaponStatus = EWeaponStatus::Idle;
+	
+	// Reload 동안 Trigger를 계속 누르고 있었다면 즉시 발사를 재개한다.
+	if (bTriggerPressed && CurrentWeapon->Ammo > 0)
+	{
+		Local_FireWeapon();
+	}
+}
+
+void UCombatComponent::AddAmmo(const FGameplayTag& WeaponType, int32 AmmoAmount)
+{
+	// 서버 권위이고, CurrentWeapon 유효성 검사
+	if (GetOwner()->HasAuthority() && !IsValid(CurrentWeapon)) return;
+	
+	// Map에 WeaponType이 없을 때 새 Entry 생성 (Key)
+	if (!ReserveAmmo.Contains(WeaponType))
+	{
+		ReserveAmmo.Add(WeaponType, AmmoAmount);
+	}
+	
+	// 앞서 Key를 생성하려는 이유가 FindChecked()를 안전하게 사용하기 위함
+	const int32 NewAmmo = ReserveAmmo.FindChecked(WeaponType) + AmmoAmount;
+	ReserveAmmo[WeaponType] = NewAmmo;
+	
+	// 현재 장착 Weapon Type과 Exact Match
+	if (CurrentWeapon->WeaponType.MatchesTagExact(WeaponType))
+	{
+		// 현재 Weapon Ammo Pickup일 때 Snapshot 갱신
+		CurrentReserveAmmo = NewAmmo;
+		// 빈 현재 Weapon이면 Ammo Pickup 직후 Auto Reload
+		if (CurrentWeapon->Ammo == 0 && NewAmmo > 0)
+		{
+			Server_ReloadWeapon();
+		}
+		
+		// Current Weapon Pickup 시 HUD 갱신
+		OnAmmoCounterChanged.Broadcast(
+			CurrentWeapon->GetAmmoCounterDynamicMaterialInstance(), 
+			CurrentWeapon->Ammo, 
+			CurrentWeapon->MagCapacity);
+		// Reserve 숫자 갱신
+		OnCurrentReserveAmmoChanged.Broadcast(
+			CurrentReserveAmmo, 
+			CurrentWeapon->Ammo, 
+			CurrentWeapon->WeaponIcon);
+	}
+	
+}
+
+void UCombatComponent::Client_ReloadWeapon_Implementation(int32 NewWeaponAmmo, int32 NewCarriedAmmo)
+{
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+	if (!IsValid(CurrentWeapon) || !IsValid(OwningPawn)) return;
+	
+	if (OwningPawn->IsLocallyControlled())
+	{
+		// Server가 확정한 Magazine / Reserve 값을 Owner의 Local 복사본에 적용한다.
+		CurrentWeapon->Ammo = NewWeaponAmmo;
+		CurrentReserveAmmo = NewCarriedAmmo;
+		
+		// Magazine UI를 새 권위값으로 갱신한다.
+		OnAmmoCounterChanged.Broadcast(
+			CurrentWeapon->GetAmmoCounterDynamicMaterialInstance(),
+			CurrentWeapon->Ammo,
+			CurrentWeapon->MagCapacity);
+
+		// Reserve Ammo와 Weapon Icon HUD를 함께 갱신한다.
+		OnCurrentReserveAmmoChanged.Broadcast(
+			CurrentReserveAmmo,
+			CurrentWeapon->Ammo,
+			CurrentWeapon->WeaponIcon);
+	}
+}
+
 void UCombatComponent::BlendOut_CycleWeapon(UAnimMontage* Montage, bool bInterrupted)
 {
 	// Owner의 1P AnimInstance를 가져온다.
@@ -240,21 +339,36 @@ void UCombatComponent::BlendOut_CycleWeapon(UAnimMontage* Montage, bool bInterru
 		AnimInstance->OnMontageBlendingOut.RemoveDynamic(this, &ThisClass::BlendOut_CycleWeapon);
 	}
 	
-	// 현재 강의에서는 Cycle 완료 테스트를 위해 CurrentWeapon을 Idle로 복구한다.
+	// Equip Montage가 빠져나가는 시점부터 새 CurrentWeapon을 정상 사용 가능한 상태로 본다.
 	if (IsValid(CurrentWeapon))
 	{
 		CurrentWeapon->WeaponStatus = EWeaponStatus::Idle;
 	}
 	
-	// Montage Notify가 원하는 타이밍에 정상 호출되는지 먼저 검증한다.
-	if (GEngine)
+	// 새 Weapon의 Reticle Material과 Weapon별 Reticle Parameter를 Local HUD에 적용한다.
+	OnReticleChanged.Broadcast(
+		CurrentWeapon->GetReticleDynamicMaterialInstance(),
+		CurrentWeapon->ReticleParams, 
+		bHitPlayer);
+	
+	// 새 Weapon의 Ammo Counter Material과 Magazine 상태를 Local HUD에 적용한다.
+	OnAmmoCounterChanged.Broadcast(
+		CurrentWeapon->GetAmmoCounterDynamicMaterialInstance(),
+		CurrentWeapon->Ammo,
+		CurrentWeapon->MagCapacity);
+	
+	// Reserve Ammo Text와 Weapon Icon도 현재 Weapon 기준으로 갱신한다.
+	OnCurrentReserveAmmoChanged.Broadcast(
+		CurrentReserveAmmo,
+		CurrentWeapon->Ammo,
+		CurrentWeapon->WeaponIcon);
+
+	// Trigger를 계속 누르고 있던 Automatic Weapon이면 Cycle 종료 즉시 사격을 재개한다.
+	if (bTriggerPressed &&
+		CurrentWeapon->FireType == EFireType::Auto &&
+		CurrentWeapon->Ammo > 0)
 	{
-		GEngine->AddOnScreenDebugMessage(
-			-1,
-			5.f,
-			FColor::Yellow,
-			TEXT("Blend Out Cycle Weapon"),
-			false);
+		Local_FireWeapon();
 	}
 }
 
@@ -262,9 +376,11 @@ void UCombatComponent::Initiate_FireWeapon_Pressed()
 {
 	if (!IsValid(CurrentWeapon)) return;
 	
+	// Trigger 입력 상태 자체는 먼저 기록한다.
 	bTriggerPressed = true;
 	
-	if (CurrentWeapon->Ammo > 0)
+	// Weapon이 실제 사용 가능한 Idle 상태일 때만 새로운 Fire를 시작한다.
+	if (CurrentWeapon->WeaponStatus == EWeaponStatus::Idle && CurrentWeapon->Ammo > 0)
 	{
 		Local_FireWeapon();
 	}
@@ -274,6 +390,9 @@ void UCombatComponent::Local_FireWeapon()
 {
 	if (!IsValid(CurrentWeapon)) return;
 	ensure(IsValid(WeaponData));
+	
+	// 한 발 발사를 시작한 순간부터 FireTime이 끝날 때까지 추가 입력을 막는다.
+	CurrentWeapon->WeaponStatus = EWeaponStatus::Firing;
 	
 	UAnimMontage* Montage1P = WeaponData->FirstPersonMontages.FindChecked(CurrentWeapon->WeaponType).FireMontage;
 	USkeletalMeshComponent* Mesh1P = IPlayerInterface::Execute_GetMesh1P(GetOwner());
@@ -320,7 +439,28 @@ int32 UCombatComponent::AdvanceWeaponIndex()
 
 void UCombatComponent::FireTimerFinished()
 {
-	if (!IsValid(CurrentWeapon)) return;
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+
+	if (!IsValid(CurrentWeapon) || !IsValid(OwningPawn))
+	{
+		return;
+	}
+	
+	// 마지막 탄을 쐈고 Reserve가 남아 있는 Local Pawn이면 자동 Reload를 시작한다.
+	if (CurrentWeapon->Ammo == 0 &&
+		CurrentReserveAmmo > 0 &&
+		OwningPawn->IsLocallyControlled())
+	{
+		Local_ReloadWeapon();
+		Server_ReloadWeapon();
+		return;
+	}
+	
+	// FireTime이 끝났더라도 현재 상태가 여전히 Firing일 때만 Idle로 복구한다.
+	if (CurrentWeapon->WeaponStatus == EWeaponStatus::Firing)
+	{
+		CurrentWeapon->WeaponStatus = EWeaponStatus::Idle;
+	}
 	
 	if (bTriggerPressed && CurrentWeapon->FireType == EFireType::Auto && CurrentWeapon->Ammo > 0)
 	{
@@ -332,6 +472,13 @@ void UCombatComponent::Server_FireWeapon_Implementation(const FHitResult& Hit)
 {
 	
 	if (!IsValid(CurrentWeapon)) return;
+	
+	// Client가 Local Prediction상 발사를 요청해도 Server의 실제 Ammo가 없으면 거부한다.
+	if (CurrentWeapon->Ammo <= 0)
+	{
+		return;
+	}
+
 	
 	// Listen Server Host의 중복 Ammo 감소 방지 - 예외처리
 	// 내가 방장이 아니거나, 내가 직접 조종하는 캐릭터가 아니라면 서버에서 총을 쏴라
@@ -389,13 +536,102 @@ void UCombatComponent::Initiate_FireWeapon_Released()
 
 void UCombatComponent::Initiate_ReloadWeapon()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_ReloadWeapon"),
-		false);	
+	// 장착 Weapon이 없으면 Reload할 수 없다.
+	if (!IsValid(CurrentWeapon))
+	{
+		return;
+	}
+	
+	// Weapon Cycle 또는 이미 Reload 중이면 중복 Reload를 차단한다.
+	if (CurrentWeapon->WeaponStatus == EWeaponStatus::Cycling ||
+		CurrentWeapon->WeaponStatus == EWeaponStatus::Reloading)
+	{
+		return;
+	}
+	
+	// Magazine이 이미 가득 찼으면 Reload가 필요 없다.
+	if (CurrentWeapon->Ammo == CurrentWeapon->MagCapacity)
+	{
+		return;
+	}
+	
+	// 현재 Weapon Type에 사용할 Reserve Ammo가 없으면 Reload할 수 없다.
+	if (CurrentReserveAmmo == 0)
+	{
+		return;
+	}
+	
+	// Owner에게 즉시 Reload Animation을 보여 준다.
+	Local_ReloadWeapon();
+
+	// Server에도 Reload 요청을 전달한다.
+	Server_ReloadWeapon();
 }
+
+void UCombatComponent::Local_ReloadWeapon()
+{
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+
+	if (!IsValid(CurrentWeapon) || !IsValid(OwningPawn))
+	{
+		return;
+	}
+
+	// Weapon Type별 Montage Data를 조회하기 위해 WeaponData가 필요하다.
+	ensure(WeaponData);
+	
+	const bool bIsLocal = OwningPawn->IsLocallyControlled();
+	
+	// 1P / 3P Character Reload Montage 선택
+	UAnimMontage* ReloadMontage = bIsLocal
+		? WeaponData->FirstPersonMontages.FindChecked(CurrentWeapon->WeaponType).ReloadMontage
+		: WeaponData->ThirdPersonMontages.FindChecked(CurrentWeapon->WeaponType).ReloadMontage;
+	
+	//  Character Mesh 선택
+	USkeletalMeshComponent* Mesh = bIsLocal 
+		? IPlayerInterface::Execute_GetMesh1P(OwningPawn) 
+		: IPlayerInterface::Execute_GetMesh3P(OwningPawn);
+	
+	// Character Reload Montage 재생
+	if (IsValid(ReloadMontage) && IsValid(Mesh))
+	{
+		// 현재 관찰 역할에 맞는 Character Mesh에서 Reload Montage를 재생한다.
+		Mesh->GetAnimInstance()->Montage_Play(ReloadMontage);
+	}
+	
+	// Weapon Reload Montage는 1P/3P 공통 Data
+	UAnimMontage* WeaponReloadMontage = 
+		WeaponData->WeaponMontages.FindChecked(CurrentWeapon->WeaponType).ReloadMontage;
+	
+	//  Weapon Mesh는 Local 여부로 선택
+	USkeletalMeshComponent* WeaponMesh = bIsLocal 
+		? CurrentWeapon->GetMesh1P() 
+		: CurrentWeapon->GetMesh3P();
+	
+	if (IsValid(WeaponReloadMontage) && IsValid(WeaponMesh))
+	{
+		// Magazine/Bolt 등 Weapon Bone Animation을 Character Reload와 함께 재생한다.
+		WeaponMesh->GetAnimInstance()->Montage_Play(WeaponReloadMontage);
+	}
+	// Reloading 상태 잠금
+	CurrentWeapon->WeaponStatus = EWeaponStatus::Reloading;
+}
+
+
+
+void UCombatComponent::Server_ReloadWeapon_Implementation()
+{
+	// Multicast는 이제 Reload Animation 전파만 담당한다.
+	Multicast_ReloadWeapon();
+}
+
+void UCombatComponent::Multicast_ReloadWeapon_Implementation()
+{
+	// 이번 강의에서는 Ammo Payload를 사용하지 않고 Reload Cosmetic만 재생한다.
+	Local_ReloadWeapon();
+}
+
+
 
 void UCombatComponent::Initiate_Aim_Pressed()
 {
@@ -500,14 +736,30 @@ void UCombatComponent::SetCurrentWeapon(AWeapon* NewWeapon, AWeapon* LastWeapon)
 	
 	APawn* OwningPawn = Cast<APawn>(GetOwner());
 	
+	// 이후 Attach / Local Control / Authority 판단 모두 Pawn을 사용하므로 일찍 검증한다.
+	if (!IsValid(OwningPawn)) return;
+	
 	// ReserveAmmo Map은 Server 권위 데이터이므로 Server에서만 현재 Reserve Snapshot을 갱신한다.
-	if (IsValid(OwningPawn) && OwningPawn->HasAuthority() && IsValid(CurrentWeapon))
+	if (OwningPawn->HasAuthority() && IsValid(CurrentWeapon))
 	{
 		CurrentReserveAmmo = ReserveAmmo.FindChecked(CurrentWeapon->WeaponType);
 	}
+	// Null CurrentWeapon을 Attach하려는 미래 확장 Crash를 방지한다.
+	if (!IsValid(CurrentWeapon)) return;
 	
 	// 새 CurrentWeapon을 Pawn의 1P / 3P Mesh에 Attach한다.
 	CurrentWeapon->AttachToOwningPawn(OwningPawn);
+	
+	// 빈 Weapon으로 교체했지만 Reserve가 남아 있으면 즉시 Reload를 시작한다.
+	if (CurrentWeapon->Ammo == 0 &&
+		CurrentReserveAmmo > 0 &&
+		OwningPawn->IsLocallyControlled())
+	{
+		Local_ReloadWeapon();
+		Server_ReloadWeapon();
+	}
+	
+	
 }
 
 // 인벤토리 생성

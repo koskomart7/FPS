@@ -393,6 +393,21 @@ void AHeroCharacter::Notify_CycleWeapon_Implementation()
 	}
 }
 
+void AHeroCharacter::Notify_ReloadWeapon_Implementation()
+{
+	// AnimBP에서 전달된 Reload Notify를 실제 Combat Logic으로 넘긴다.
+	Combat->Notify_ReloadWeapon();
+}
+
+void AHeroCharacter::AddAmmo_Implementation(const FGameplayTag& WeaponType, int32 AmmoAmount)
+{
+	// ReserveAmmo는 Server 권위 상태이므로 Authority에서만 실제 CombatComponent로 전달한다.
+	if (HasAuthority() && IsValid(Combat))
+	{
+		Combat->AddAmmo(WeaponType, AmmoAmount);
+	}
+}
+
 
 void AHeroCharacter::Input_CycleWeapon()
 {
