@@ -384,6 +384,15 @@ int32 AHeroCharacter::GetReserveAmmo_Implementation() const
 	return Combat->CurrentReserveAmmo;
 }
 
+void AHeroCharacter::Notify_CycleWeapon_Implementation()
+{
+	// Animation Blueprint에서 들어온 Weapon Cycle Notify를 CombatComponent에 전달한다.
+	if (IsValid(Combat))
+	{
+		Combat->Notify_CycleWeapon();
+	}
+}
+
 
 void AHeroCharacter::Input_CycleWeapon()
 {

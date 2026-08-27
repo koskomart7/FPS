@@ -52,6 +52,8 @@ public:
 	
 	virtual int32 GetReserveAmmo_Implementation() const override;
 	
+	virtual void Notify_CycleWeapon_Implementation() override;
+	
 #pragma endregion 
 	
 	UFUNCTION(BlueprintCallable)

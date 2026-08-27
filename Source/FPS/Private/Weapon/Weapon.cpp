@@ -42,16 +42,18 @@ AWeapon::AWeapon()
 	StartingCarriedAmmo = 10;
 	Sequence = 0;
 	
+	// Inventory에 Spawn된 Weapon은 기본적으로 아직 손에 들고 있지 않은 상태로 시작한다.
+	WeaponStatus = EWeaponStatus::Unequipped;
 }
 
-void AWeapon::OnRep_Instigator()
+/*void AWeapon::OnRep_Instigator()
 {
 	// 게임 시작시 여러 오브젝트의 복제 순서는 비결정적
 	// 무기 스스로도 유효한 Instigator가 생기는 시점에 부착을 시도하도록 유지 - OnRep_Instigator
 	// 그 이후, 게임 중 무기를 바꾸는 상황은 OnRep_CurrentWeapon이 맡는다
 	Super::OnRep_Instigator();
 	AttachToOwningPawn();
-}
+}*/
 
 USkeletalMeshComponent* AWeapon::GetMesh1P() const
 {
@@ -81,24 +83,37 @@ UMaterialInstanceDynamic* AWeapon::GetAmmoCounterDynamicMaterialInstance()
 	return DynMatInst_AmmoCounter;
 }
 
-void AWeapon::AttachToOwningPawn() const
+void AWeapon::AttachToOwningPawn(APawn* Pawn) const
 {
 	// 소유자 검사
-	APawn* OwingPawn = GetInstigator();
-	if (!IsValid(OwingPawn) || !OwingPawn->Implements<UPlayerInterface>()) return;
+	//APawn* OwingPawn = GetInstigator();
+	
+	// Instigator Replication을 기다리지 않고 CombatComponent가 알고 있는 Pawn을 직접 사용한다.
+	if (!IsValid(Pawn) || !Pawn->Implements<UPlayerInterface>()) return;
 
 	// 메쉬 가시성 설정
-	SetMeshVisibilities(OwingPawn);	// const 함수 내부에서 호출시에 해당 함수도 const 여야함
+	SetMeshVisibilities(Pawn);	// const 함수 내부에서 호출시에 해당 함수도 const 여야함
 
 	// BNE( Blueprint Native Event ) 인터페이스 함수 호출 _ Execute_ 정적 래퍼 
-	const FName AttachPoint = IPlayerInterface::Execute_GetWeaponAttachPoint(OwingPawn, WeaponType);
-	USkeletalMeshComponent* PawnMesh1P = IPlayerInterface::Execute_GetMesh1P(OwingPawn);
-	USkeletalMeshComponent* PawnMesh3P = IPlayerInterface::Execute_GetMesh3P(OwingPawn);
+	const FName AttachPoint = IPlayerInterface::Execute_GetWeaponAttachPoint(Pawn, WeaponType);
+	USkeletalMeshComponent* PawnMesh1P = IPlayerInterface::Execute_GetMesh1P(Pawn);
+	USkeletalMeshComponent* PawnMesh3P = IPlayerInterface::Execute_GetMesh3P(Pawn);
 	
 	// 메쉬 소켓에 부착
 	Mesh1P->AttachToComponent(PawnMesh1P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
 	Mesh3P->AttachToComponent(PawnMesh3P, FAttachmentTransformRules::KeepRelativeTransform, AttachPoint);
 
+}
+
+void AWeapon::DetachFromOwningPawn()
+{
+	// 1P Weapon Mesh를 Character에서 떼고 보이지 않게 한다.
+	Mesh1P->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+	Mesh1P->SetHiddenInGame(true);
+
+	// 3P Weapon Mesh도 동일하게 Detach하고 숨긴다.
+	Mesh3P->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+	Mesh3P->SetHiddenInGame(true);
 }
 
 void AWeapon::WeaponTrace(FHitResult& OutHit, float TraceLenght)

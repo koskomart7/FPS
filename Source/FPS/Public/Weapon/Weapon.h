@@ -18,6 +18,24 @@ enum class EFireType : uint8
 	SemiAuto UMETA(DisplayName = "SemiAutomatic")
 };
 
+UENUM(BlueprintType)
+enum class EWeaponStatus : uint8
+{
+	// 현재 특별한 행동을 하지 않으며 Fire / Reload / Cycle 가능.
+	Idle,
+
+	// Fire 처리 중이며 Reload / Cycle을 제한하기 위한 상태.
+	Firing,
+
+	// Reload 중이며 Fire / Cycle을 제한하기 위한 상태.
+	Reloading,
+
+	// 다음 Weapon으로 전환 중이며 Fire / Reload / 재Cycle을 제한하기 위한 상태.
+	Cycling,
+
+	// Inventory에는 있지만 현재 손에 들고 있지 않은 Weapon.
+	Unequipped
+};
 
 UCLASS()
 class FPS_API AWeapon : public AActor
@@ -27,9 +45,10 @@ class FPS_API AWeapon : public AActor
 public:
 	AWeapon();
 	
-	virtual void OnRep_Instigator() override; 	
+	//virtual void OnRep_Instigator() override; 	
 	
-	void AttachToOwningPawn() const;
+	void AttachToOwningPawn(APawn* Pawn) const;
+	void DetachFromOwningPawn();
 	void WeaponTrace(FHitResult& OutHit, float TraceLenght);
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category= "FPS|WeaponType")
@@ -76,6 +95,7 @@ public:
 	UPROPERTY(EditAnywhere, Category="FPS|Ammo")
 	int32 StartingCarriedAmmo;
 	
+	EWeaponStatus WeaponStatus;
 protected:
 	virtual void BeginPlay() override;
 

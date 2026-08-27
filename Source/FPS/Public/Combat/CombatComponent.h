@@ -48,6 +48,9 @@ public:
 	void Initiate_Aim_Pressed();
 	void Initiate_Aim_Released();
 	
+	// Notify Callback
+	void Notify_CycleWeapon(); 
+	
 	// 무기 조준점, 총알개수 UI 전달용 델리게이트 규격 정의
 	UPROPERTY(BlueprintAssignable)
 	FReticleChanged OnReticleChanged;
@@ -75,6 +78,12 @@ public:
 	
 	// 장비 장착 
 	void Equip(AWeapon* Weapon);
+	// Authority 분기
+	void EquipWeapon(AWeapon* Weapon);
+	
+	// 실제 권위 변경 요청
+	UFUNCTION(Server, Reliable)
+	void Server_EquipWeapon(AWeapon* Weapon);
 	
 	// 인벤토리 생성 및 파괴
 	void SpawnInventory();
@@ -101,6 +110,9 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "FPS|Weapon")
 	float TraceLength;
+	
+	UFUNCTION()
+	void BlendOut_CycleWeapon(UAnimMontage* Montage, bool bInterrupted);
 
 private:
 	
@@ -115,6 +127,9 @@ private:
 	// 마지막 무기를 숨기고 비활성화 할 때 강력 ( 교체관련 )
 	UFUNCTION()
 	void OnRep_CurrentWeapon(AWeapon* LastWeapon);	// 파라미터 = 이전값 , 복제 직전의 옛 값이 전달
+	
+	// 현재무기 설정
+	void SetCurrentWeapon(AWeapon* NewWeapon, AWeapon* LastWeapon);
 	
 	// 인벤토리 배열 선언
 	// Transient - 무기 포인터를 디스크에 저장할 수 없다 ( 런타임에만 의미 있는 상태 )
@@ -143,4 +158,16 @@ private:
 	// Local 함수 
 	void Local_Aim(bool bPressed);
 	void Local_FireWeapon();
+	
+	// 다음 무기 인덱스 반환
+	int32 AdvanceWeaponIndex();
+	int32 Local_WeaponIndex;
+	
+	void Local_CycleWeapon(int32 WeaponIndex);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_CycleWeapon(int32 WeaponIndex);
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_CycleWeapon(int32 WeaponIndex);
 };

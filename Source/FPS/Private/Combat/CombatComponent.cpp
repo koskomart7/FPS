@@ -25,6 +25,9 @@ UCombatComponent::UCombatComponent()
 	TraceLength = 20'000;
 	bAiming = false;
 	bTriggerPressed = false;
+	
+	// 현재 선택된 Inventory 위치를 첫 번째 Weapon으로 초기화한다.
+	Local_WeaponIndex = 0;
 }
 
 
@@ -87,12 +90,172 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 
 void UCombatComponent::Initiate_CycleWeapon()
 {
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		5.f, 
-		FColor::Cyan, 
-		TEXT("Initiate_CycleWeapon"),
-		false);	
+	// 현재 장착 Weapon이 없으면 Cycle할 수 없다.
+	if (!IsValid(CurrentWeapon)) return;
+	// 이미 Weapon Cycle 연출이 진행 중이면 중복 입력을 무시한다.
+	if (CurrentWeapon->WeaponStatus == EWeaponStatus::Cycling) return;
+	
+	// Inventory에서 다음 Weapon Index로 이동한다.
+	AdvanceWeaponIndex();
+	
+	
+	// Owner에서 다음 Weapon의 Equip Montage를 즉시 재생한다.
+	Local_CycleWeapon(Local_WeaponIndex);
+}
+
+// Local_CycleWeapon
+	// WeaponIndex에서 해당 무기의 장비 몽타주를 재생합니다.
+		// 로컬로 제어되는 경우 1P를 재생하고, 그렇지 않은 경우 3P를 재생합니다.
+	// 로컬로 제어되는 경우 Server_CycleWeapon()을 호출합니다.
+	// CurrentWeapon의 WeaponStatus를 Cycling으로 설정합니다.
+
+// Server_CycleWeapon
+	// 로컬 무기 인덱스 설정
+	// Multicast_CycleWeapon(WeaponIndex)
+
+// Multicast_CycleWeapon
+	// 로컬 무기 인덱스 설정	
+	// Local_CycleWeapon(WeaponIndex)
+
+void UCombatComponent::Local_CycleWeapon(int32 WeaponIndex)
+{
+	// 전달된 Index의 Weapon을 "교체될 다음 Weapon"으로 사용한다.
+	AWeapon* NextWeapon = Inventory[WeaponIndex];
+
+	// 다음 Weapon 또는 WeaponData가 없으면 Montage를 재생할 수 없다.
+	if (!IsValid(NextWeapon) || !IsValid(WeaponData))
+	{
+		return;
+	}
+
+	// 현재 Weapon과 다음 Weapon을 모두 Cycle 처리 중으로 잠근다.
+	CurrentWeapon->WeaponStatus = EWeaponStatus::Cycling;
+	NextWeapon->WeaponStatus = EWeaponStatus::Cycling;
+
+	// Local 여부로 1P / 3P Montage Data 선택
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+	const bool bIsLocal = IsValid(OwningPawn) && OwningPawn->IsLocallyControlled();
+	
+	const FMontageData& MontageData = bIsLocal
+	? WeaponData->FirstPersonMontages.FindChecked(NextWeapon->WeaponType)
+	: WeaponData->ThirdPersonMontages.FindChecked(NextWeapon->WeaponType);
+
+	// PlayerInterface로 1P / 3P Mesh 선택
+	USkeletalMeshComponent* Mesh = bIsLocal
+	? IPlayerInterface::Execute_GetMesh1P(GetOwner())
+	: IPlayerInterface::Execute_GetMesh3P(GetOwner());
+	
+	if (IsValid(Mesh) && IsValid(MontageData.EquipMontage))
+	{
+		// 선택된 Mesh의 AnimInstance에서 다음 Weapon용 Equip Montage를 재생한다.
+		Mesh->GetAnimInstance()->Montage_Play(MontageData.EquipMontage);
+	}
+	
+	if (bIsLocal)
+	{
+		// 입력을 실제로 소유한 Local Pawn만 Server에 Cycle 요청을 전송한다.
+		Server_CycleWeapon(WeaponIndex);
+		
+		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+
+		if (IsValid(AnimInstance))
+		{
+			// Owner의 1P Equip Montage가 Blend Out을 시작하면 Cycle 종료 Callback을 실행한다.
+			AnimInstance->OnMontageBlendingOut.AddDynamic(
+				this,
+				&ThisClass::BlendOut_CycleWeapon);
+		}
+	}
+
+}
+
+
+void UCombatComponent::Server_CycleWeapon_Implementation(int32 WeaponIndex)
+{
+	// Owner가 선택한 다음 Weapon Index를 Server 쪽 Local State에도 맞춘다.
+	Local_WeaponIndex = WeaponIndex;
+
+	// Server와 현재 연결된 Client에 Cycle 연출을 전파한다.
+	Multicast_CycleWeapon(WeaponIndex);
+	
+}
+
+void UCombatComponent::Multicast_CycleWeapon_Implementation(int32 WeaponIndex)
+{
+	// Owner 중복 실행 방지
+	
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+
+	if (!IsValid(OwningPawn))
+	{
+		return;
+	}
+
+	// Owner는 이미 Local Prediction으로 1P Montage를 재생했으므로 중복 실행하지 않는다.
+	if (!OwningPawn->IsLocallyControlled())
+	{
+		Local_WeaponIndex = WeaponIndex;
+		Local_CycleWeapon(WeaponIndex);
+	}
+}
+
+void UCombatComponent::Notify_CycleWeapon()
+{
+	// 현재 Weapon이 없으면 Notify가 와도 교체할 수 없다.
+	if (!IsValid(CurrentWeapon))
+	{
+		return;
+	}
+	
+	// Initiate 단계에서 미리 선택해 둔 Inventory Index의 Weapon을 가져온다.
+	AWeapon* NewWeapon = Inventory[Local_WeaponIndex];
+
+	if (IsValid(NewWeapon))
+	{
+		// Montage 중간의 숨겨진 시점에서 실제 Equip 절차를 시작한다.
+		EquipWeapon(NewWeapon);
+	}
+}
+
+void UCombatComponent::BlendOut_CycleWeapon(UAnimMontage* Montage, bool bInterrupted)
+{
+	// Owner의 1P AnimInstance를 가져온다.
+	USkeletalMeshComponent* Mesh1P = IPlayerInterface::Execute_GetMesh1P(GetOwner());
+
+	if (!IsValid(Mesh1P))
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
+
+	if (!IsValid(AnimInstance))
+	{
+		return;
+	}
+
+	// 다음 Cycle에서 동일 Callback이 중복 등록되지 않도록 현재 Binding을 제거한다.
+	if (AnimInstance->OnMontageBlendingOut.IsAlreadyBound(this, &ThisClass::BlendOut_CycleWeapon))
+	{
+		AnimInstance->OnMontageBlendingOut.RemoveDynamic(this, &ThisClass::BlendOut_CycleWeapon);
+	}
+	
+	// 현재 강의에서는 Cycle 완료 테스트를 위해 CurrentWeapon을 Idle로 복구한다.
+	if (IsValid(CurrentWeapon))
+	{
+		CurrentWeapon->WeaponStatus = EWeaponStatus::Idle;
+	}
+	
+	// Montage Notify가 원하는 타이밍에 정상 호출되는지 먼저 검증한다.
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			5.f,
+			FColor::Yellow,
+			TEXT("Blend Out Cycle Weapon"),
+			false);
+	}
 }
 
 void UCombatComponent::Initiate_FireWeapon_Pressed()
@@ -141,6 +304,19 @@ void UCombatComponent::Local_FireWeapon()
 	// 서버 무기 발사 
 	Server_FireWeapon(Hit);
 }
+
+int32 UCombatComponent::AdvanceWeaponIndex()
+{
+	// Weapon이 두 개 이상일 때만 다음 Index로 이동한다.
+	if (Inventory.Num() >= 2)
+	{
+		Local_WeaponIndex = (Local_WeaponIndex + 1) % Inventory.Num();
+	}
+	// Weapon이 하나뿐이면 기존 Index를 그대로 반환한다.
+	return Local_WeaponIndex;
+}
+
+
 
 void UCombatComponent::FireTimerFinished()
 {
@@ -201,19 +377,6 @@ void UCombatComponent::Initiate_FireWeapon_Released()
 }
 
 // Local_FireWeapon
-	// play the fire weapon montage for the first-person mesh
-	// Server_FireWeapon()
-
-// Server_FireWeapon
-	// Multicast_FireWeapon()
-
-// Multicast_FireWeapon()
-	// if we are NOT locally controlled
-	// play the fire montage on the 3rd person mesh
-
-// ======== 한국어 의사코드 ==============
-
-// Local_FireWeapon
 	// 1인칭 메시에 대한 발사 무기 몽타주를 재생합니다.
 	// Server_FireWeapon()
 
@@ -246,6 +409,7 @@ void UCombatComponent::Initiate_Aim_Released()
 	Server_Aim(false);
 }
 
+
 void UCombatComponent::Server_Aim_Implementation(bool bPressed)
 {
 	Local_Aim(bPressed);
@@ -273,13 +437,77 @@ void UCombatComponent::Local_Aim(bool bPressed)
 void UCombatComponent::Equip(AWeapon* Weapon)
 {
 	// 서버에서 현재 Weapon을 권위 있게 설정한다.
-	CurrentWeapon = Weapon;					// 값 변경 = 복제 트리거
-	CurrentWeapon->AttachToOwningPawn();	// 서버 몫의 부착 (서버는 OnRep 자동 호출 없음)
+	CurrentWeapon = Weapon;			
+	
+	// Server가 알고 있는 CombatComponent Owner Pawn을 명시적으로 전달한다.
+	CurrentWeapon->AttachToOwningPawn(Cast<APawn>(GetOwner()));	
 	
 	// 현재 장착한 무기 종류에 맞는 예비 탄약수를 조회하여 변수에 저장하고, ( WeaponType은 ReserveAmmo에 반드시 존재 ) 
 	// 탄약 변경 사항을 UI 등 다른 시스템에 알리기 위해 이벤트를 발생(브로드캐스트)
 	CurrentReserveAmmo = ReserveAmmo.FindChecked(CurrentWeapon->WeaponType);
 	OnCurrentReserveAmmoChanged.Broadcast(CurrentReserveAmmo, Weapon->Ammo, CurrentWeapon->WeaponIcon);
+}
+
+void UCombatComponent::EquipWeapon(AWeapon* Weapon)
+{
+	// 유효한 Weapon과 Owner가 있어야 교체를 진행할 수 있다.
+	if (!IsValid(Weapon) || !IsValid(GetOwner()))
+	{
+		return;
+	}
+
+	if (GetOwner()->GetLocalRole() == ROLE_Authority)
+	{
+		// Server/Listen Host는 Replicated CurrentWeapon을 직접 변경한다.
+		SetCurrentWeapon(Weapon, CurrentWeapon);
+	}
+	else
+	{
+		// Owning Client는 Server에 Weapon 변경을 요청한다.
+		Server_EquipWeapon(Weapon);
+	}
+}
+
+void UCombatComponent::Server_EquipWeapon_Implementation(AWeapon* Weapon)
+{
+	// Client가 요청한 Weapon Equip을 Server 권위 경로에서 다시 실행한다.
+	EquipWeapon(Weapon);
+}
+
+void UCombatComponent::SetCurrentWeapon(AWeapon* NewWeapon, AWeapon* LastWeapon)
+{
+	// Server 직접 호출과 Client RepNotify 모두에서 사용할 실제 이전 Weapon을 결정한다.
+	AWeapon* LocalLastWeapon = nullptr;
+
+	if (IsValid(LastWeapon))
+	{
+		LocalLastWeapon = LastWeapon;
+	}
+	else if (NewWeapon != CurrentWeapon)
+	{
+		LocalLastWeapon = CurrentWeapon;
+	}
+
+	// 이전 Weapon이 있다면 Pawn에서 제거하고 Inventory 보관 상태로 전환한다.
+	if (IsValid(LocalLastWeapon))
+	{
+		LocalLastWeapon->DetachFromOwningPawn();
+		LocalLastWeapon->WeaponStatus = EWeaponStatus::Unequipped;
+	}
+	
+	// 실제 CurrentWeapon Reference를 새 Weapon으로 변경한다.
+	CurrentWeapon = NewWeapon;
+	
+	APawn* OwningPawn = Cast<APawn>(GetOwner());
+	
+	// ReserveAmmo Map은 Server 권위 데이터이므로 Server에서만 현재 Reserve Snapshot을 갱신한다.
+	if (IsValid(OwningPawn) && OwningPawn->HasAuthority() && IsValid(CurrentWeapon))
+	{
+		CurrentReserveAmmo = ReserveAmmo.FindChecked(CurrentWeapon->WeaponType);
+	}
+	
+	// 새 CurrentWeapon을 Pawn의 1P / 3P Mesh에 Attach한다.
+	CurrentWeapon->AttachToOwningPawn(OwningPawn);
 }
 
 // 인벤토리 생성
@@ -332,17 +560,26 @@ void UCombatComponent::InitializeWeaponWidgets() const
 }
 
 
+
+
 void UCombatComponent::OnRep_CurrentWeapon(AWeapon* LastWeapon)
 {
-	//	게임 중 무기를 바꾸는 상황은 OnRep_CurrentWeapon이 맡는다
+	/*//	게임 중 무기를 바꾸는 상황은 OnRep_CurrentWeapon이 맡는다
 	if (!IsValid(CurrentWeapon)) return;
 
-	CurrentWeapon->AttachToOwningPawn();
+	// "현재 Weapon이 바뀌었다"는 정확한 Event에서 해당 Weapon만 Attach한다.
+	CurrentWeapon->AttachToOwningPawn(Cast<APawn>(GetOwner()));*/
+	
+	// Client에서도 Server와 동일한 Old/New Weapon 정리 절차를 재사용한다.
+	SetCurrentWeapon(CurrentWeapon, LastWeapon);
+
 	
 	// 인터페이스 호출
 	IPlayerInterface::Execute_WeaponReplicated(GetOwner());
 	InitializeWeaponWidgets();
 }
+
+
 
 
 AWeapon* UCombatComponent::SpawnWeapon(TSubclassOf<AWeapon> WeaponClass) const
