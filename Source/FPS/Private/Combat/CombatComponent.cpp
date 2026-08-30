@@ -479,6 +479,10 @@ void UCombatComponent::Server_FireWeapon_Implementation(const FHitResult& Hit)
 		return;
 	}
 
+	if (IsValid(Hit.GetActor()) && Hit.GetActor()->Implements<UPlayerInterface>())
+	{
+		IPlayerInterface::Execute_DoDamage(Hit.GetActor(), 0.f, GetOwner());
+	}
 	
 	// Listen Server Host의 중복 Ammo 감소 방지 - 예외처리
 	// 내가 방장이 아니거나, 내가 직접 조종하는 캐릭터가 아니라면 서버에서 총을 쏴라

@@ -12,6 +12,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Weapon/Weapon.h"
+#include "Animation/AnimInstance.h"
+#include "Health/HealthComponent.h"
 
 // Sets default values
 AHeroCharacter::AHeroCharacter()
@@ -51,6 +53,9 @@ AHeroCharacter::AHeroCharacter()
 	
 	Combat = CreateDefaultSubobject<UCombatComponent>("Combat");
 	Combat->SetIsReplicated(true);
+	
+	Health = CreateDefaultSubobject<UHealthComponent>("Health");
+	Health->SetIsReplicated(true);
 	
 	DefaultFOV = 90.0f;
 	
@@ -408,6 +413,33 @@ void AHeroCharacter::AddAmmo_Implementation(const FGameplayTag& WeaponType, int3
 	}
 }
 
+bool AHeroCharacter::DoDamage_Implementation(float DamageAmount, AActor* DamageInstigator)
+{
+	// Change Health by DamageAmount - HP 감소 
+	// calculate whether or not damage was leathal - 죽음 판정
+	
+	// Play a Hit React montage ( also multicast hit react ) - Hit React 몽타주
+	const int32 MontageSelection = FMath::RandRange(0, HitReacts.Num() - 1);
+	Multicast_HitReact(MontageSelection);
+	
+	
+	return false;
+}
+
+
+void AHeroCharacter::Multicast_HitReact_Implementation(int32 MontageIndex)
+{
+	// Dedicated Server에는 시각적으로 보여 줄 사람이 없으므로 Montage를 재생하지 않는다.
+	// 현재 프로젝트에는 3P Hit React만 있으므로 Victim 자신의 1P 화면에서는 재생하지 않는다.
+	if (GetNetMode() != NM_DedicatedServer && !IsLocallyControlled())
+	{
+		// Server가 전달한 Index가 실제 Character Asset Array 범위 안에 있는지 확인한다.
+		if (HitReacts.IsValidIndex(MontageIndex))
+		{
+			GetMesh()->GetAnimInstance()->Montage_Play(HitReacts[MontageIndex]);
+		}
+	}
+}
 
 void AHeroCharacter::Input_CycleWeapon()
 {

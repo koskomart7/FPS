@@ -8,6 +8,7 @@
 #include "ShooterTypes/ShooterTypes.h"
 #include "HeroCharacter.generated.h"
 
+class UHealthComponent;
 class AWeapon;
 class UCombatComponent;
 class UCameraComponent;
@@ -57,6 +58,8 @@ public:
 	virtual void Notify_ReloadWeapon_Implementation() override;
 	
 	virtual void AddAmmo_Implementation(const FGameplayTag& WeaponType, int32 AmmoAmount) override;
+	
+	virtual bool DoDamage_Implementation(float DamageAmount, AActor* DamageInstigator) override;
 #pragma endregion 
 	
 	UFUNCTION(BlueprintCallable)
@@ -75,7 +78,13 @@ public:
 	// 무기가 처음 복제 되었는지 여부에 대한 getter
 	bool HasWeaponFirstReplicated() const { return bWeaponFirstReplicated; }
 	
+	UPROPERTY(EditDefaultsOnly, Category="FPS|HitReact")
+	TArray<TObjectPtr<UAnimMontage>> HitReacts;
+	
 protected:
+	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
+	TObjectPtr<UHealthComponent> Health;
+	
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
 	TObjectPtr<UCombatComponent> Combat;
 	
@@ -99,6 +108,8 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="FPS|TurnInPlace")
 	ETurningInPlace TurningStatus;
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_HitReact(int32 MontageIndex);
 	
 	
 private:
