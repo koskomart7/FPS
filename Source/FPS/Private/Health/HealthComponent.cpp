@@ -44,9 +44,27 @@ bool UHealthComponent::ChangeHealthByAmount(float Amount, AActor* Instigator)
 	OnHealthChanged.Broadcast(this, OldValue, Health, Instigator);
 	
 	// Check if lethal -> start Death
+	if (Health <= 0.f)
+	{
+		StartDeath();
+	}
 	
 	return false;
 }
+
+void UHealthComponent::StartDeath()
+{
+	// 이미 DeathStarted/DeathFinished라면 다시 사망을 시작하지 않는다.
+	if (DeathState != EDeathState::NotDead)
+	{
+		return;
+	}
+	
+	DeathState = EDeathState::DeathStarted;
+	OnDeathStarted.Broadcast();
+	GetOwner()->ForceNetUpdate();	// 즉시 다음 네트워크 틱(Tick)에 리플리케이션을 수행하도록 엔진에 요청하는 함수
+}
+
 
 
 void UHealthComponent::ChangeMaxHealthByAmount(float Amount, AActor* Instigator)
@@ -66,6 +84,11 @@ void UHealthComponent::BeginPlay()
 
 void UHealthComponent::OnRep_DeathState(EDeathState OldDeathState)
 {
+	// Client가 DeathStarted 상태를 수신하면 Server와 같은 Delegate Contract를 사용한다.
+	if (DeathState == EDeathState::DeathStarted)
+	{
+		OnDeathStarted.Broadcast();
+	}
 }
 
 void UHealthComponent::OnRep_Health(float OldValue)
@@ -77,6 +100,7 @@ void UHealthComponent::OnRep_MaxHealth(float OldValue)
 {
 	OnMaxHealthChanged.Broadcast(this, OldValue, MaxHealth, nullptr);
 }
+
 
 
 

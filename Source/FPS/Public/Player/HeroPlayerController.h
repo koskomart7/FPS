@@ -21,6 +21,7 @@ public:
 	
 	AHeroPlayerController();
 	
+	bool bPawnAlive;
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;

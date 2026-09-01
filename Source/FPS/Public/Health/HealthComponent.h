@@ -12,6 +12,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(
 	float, OldValue, 
 	float, NewValue, 
 	AActor*, Instigator );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDeathStarted);
 
 
 // Death 상태를 State로 사이클을 표현 할수 있다
@@ -45,6 +46,7 @@ public:
 	bool ChangeHealthByAmount(float Amount, AActor* Instigator);
 	void ChangeMaxHealthByAmount(float Amount, AActor* Instigator);
 	
+	// 죽음 상태 구조체, 모든 클라에게 자동으로 전달 및 특정 함수 실행 
 	UPROPERTY(ReplicatedUsing = OnRep_DeathState)
 	EDeathState DeathState;
 	
@@ -61,6 +63,9 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FHealthChanged OnMaxHealthChanged;
 	
+	UPROPERTY(BlueprintAssignable)
+	FDeathStarted OnDeathStarted;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -72,6 +77,11 @@ protected:
 	
 	UFUNCTION()
 	void OnRep_MaxHealth(float OldValue);
+	
+private:
+	
+	void StartDeath();
+	
 public:
 	
 };

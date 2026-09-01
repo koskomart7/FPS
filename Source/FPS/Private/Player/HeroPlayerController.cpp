@@ -11,6 +11,7 @@
 AHeroPlayerController::AHeroPlayerController()
 {
 	bReplicates = true;
+	bPawnAlive = true;
 }
 
 void AHeroPlayerController::BeginPlay()
@@ -40,6 +41,7 @@ void AHeroPlayerController::SetupInputComponent()
 void AHeroPlayerController::Input_Crouch()
 {
 	if (!IsValid(GetCharacter())) return;
+	if (!bPawnAlive) return;
 	
 	if (UCharacterMovementComponent* CMC = GetCharacter()->GetCharacterMovement(); IsValid(CMC))
 	{
@@ -50,6 +52,7 @@ void AHeroPlayerController::Input_Crouch()
 void AHeroPlayerController::Input_Jump()
 {
 	if (!IsValid(GetCharacter())) return;
+	if (!bPawnAlive) return;
 	
 	UCharacterMovementComponent* CMC = GetCharacter()->GetCharacterMovement();
 	if (CMC->bWantsToCrouch)
@@ -64,6 +67,8 @@ void AHeroPlayerController::Input_Jump()
 
 void AHeroPlayerController::Input_Move(const FInputActionValue& InputActionValue)
 {
+	if (!bPawnAlive) return;
+	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 	
 	const FRotator Rotation = GetControlRotation();
@@ -82,6 +87,8 @@ void AHeroPlayerController::Input_Move(const FInputActionValue& InputActionValue
 
 void AHeroPlayerController::Input_Look(const FInputActionValue& InputActionValue)
 {
+	if (!bPawnAlive) return;
+	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 	AddYawInput(InputAxisVector.X);
 	AddPitchInput(InputAxisVector.Y);

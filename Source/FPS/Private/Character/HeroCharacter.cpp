@@ -13,7 +13,10 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Weapon/Weapon.h"
 #include "Animation/AnimInstance.h"
+#include "Components/CapsuleComponent.h"
+#include "FPS/FPS.h"
 #include "Health/HealthComponent.h"
+#include "Player/HeroPlayerController.h"
 
 // Sets default values
 AHeroCharacter::AHeroCharacter()
@@ -68,9 +71,18 @@ void AHeroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Server와 Client 모두 HealthComponent의 Death Event에 동일하게 반응한다.
+	Health->OnDeathStarted.AddDynamic(this, &ThisClass::OnDeathStarted);
 	FirstPersonCamera->SetFieldOfView(DefaultFOV);
 	
 	StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+	
+	if (AHeroPlayerController* PC = Cast<AHeroPlayerController>(GetController()); IsValid(PC))
+	{
+		// 새 Pawn이 시작될 때 Local Input Gate를 살아 있는 상태로 복구한다.
+		PC->bPawnAlive = true;
+	}
+	
 }
 
 void AHeroCharacter::BeginDestroy()
@@ -446,6 +458,31 @@ void AHeroCharacter::Multicast_HitReact_Implementation(int32 MontageIndex)
 			GetMesh()->GetAnimInstance()->Montage_Play(HitReacts[MontageIndex]);
 		}
 	}
+}
+
+void AHeroCharacter::OnDeathStarted()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		DeathEffects();
+		if(AHeroPlayerController* PC = Cast<AHeroPlayerController>(GetController()); IsValid(PC))
+		{
+			// Character 자체에 바인딩된 입력을 비활성화한다.
+			DisableInput(PC);
+			if (PC->IsLocalController())
+			{
+				// PlayerController에 직접 바인딩된 Move/Look 계열 입력을 별도 차단한다.
+				PC->bPawnAlive = false;
+			}
+		}
+	}
+	
+	// 죽은 Character끼리는 서로 막지 않도록 Pawn Channel을 무시한다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	
+	// 죽은 Character가 더 이상 Weapon Trace Target이 되지 않도록 한다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(FPSTraceChannels::ECC_Weapon, ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(FPSTraceChannels::ECC_Weapon, ECR_Ignore);
 }
 
 void AHeroCharacter::Input_CycleWeapon()
