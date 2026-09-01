@@ -49,10 +49,10 @@ public:
 	EDeathState DeathState;
 	
 	
-	UPROPERTY(ReplicatedUsing = OnRep_Health)
+	UPROPERTY(ReplicatedUsing = OnRep_Health, EditDefaultsOnly, Category = "FPS|Health")
 	float Health;
 	
-	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
+	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth, EditDefaultsOnly, Category = "FPS|Health")
 	float MaxHealth;
 	
 	UPROPERTY(BlueprintAssignable)

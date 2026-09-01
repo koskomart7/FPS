@@ -416,7 +416,14 @@ void AHeroCharacter::AddAmmo_Implementation(const FGameplayTag& WeaponType, int3
 bool AHeroCharacter::DoDamage_Implementation(float DamageAmount, AActor* DamageInstigator)
 {
 	// Change Health by DamageAmount - HP 감소 
+	if (!IsValid(Health)) return false;
+
+	// DoDamage의 양수 DamageAmount를 HealthComponent의 음수 변화량으로 변환한다.
+	Health->ChangeHealthByAmount(-DamageAmount, DamageInstigator);
+	
 	// calculate whether or not damage was leathal - 죽음 판정
+	
+	
 	
 	// Play a Hit React montage ( also multicast hit react ) - Hit React 몽타주
 	const int32 MontageSelection = FMath::RandRange(0, HitReacts.Num() - 1);

@@ -481,7 +481,7 @@ void UCombatComponent::Server_FireWeapon_Implementation(const FHitResult& Hit)
 
 	if (IsValid(Hit.GetActor()) && Hit.GetActor()->Implements<UPlayerInterface>())
 	{
-		IPlayerInterface::Execute_DoDamage(Hit.GetActor(), 0.f, GetOwner());
+		IPlayerInterface::Execute_DoDamage(Hit.GetActor(), CurrentWeapon->Damage, GetOwner());
 	}
 	
 	// Listen Server Host의 중복 Ammo 감소 방지 - 예외처리

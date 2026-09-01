@@ -45,6 +45,8 @@ AWeapon::AWeapon()
 	// WeaponStatus는 Replicated State가 아니므로 
 	// 각 Machine에서 최초 CurrentWeapon을 바로 사용할 수 있게 기본값을 Idle로 둔다.
 	WeaponStatus = EWeaponStatus::Idle;
+	
+	Damage = 15.f;
 }
 
 /*void AWeapon::OnRep_Instigator()
