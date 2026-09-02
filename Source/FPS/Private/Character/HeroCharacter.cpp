@@ -462,8 +462,15 @@ void AHeroCharacter::Multicast_HitReact_Implementation(int32 MontageIndex)
 
 void AHeroCharacter::OnDeathStarted()
 {
+	// Weapon Actor는 Server Authority에서 제거하여 Replicated Weapon의 수명을 확정한다.
+	if (HasAuthority())
+	{
+		Combat->DestroyInventory();
+	}
+	
 	if (GetNetMode() != NM_DedicatedServer)
 	{
+		// Blueprint가 실제 사망 연출을 담당
 		DeathEffects();
 		if(AHeroPlayerController* PC = Cast<AHeroPlayerController>(GetController()); IsValid(PC))
 		{

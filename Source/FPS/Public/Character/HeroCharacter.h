@@ -82,6 +82,11 @@ public:
 	TArray<TObjectPtr<UAnimMontage>> HitReacts;
 	
 protected:
+	
+	// 1인칭 시점 뷰 (arms)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FPS|Mesh")
+	TObjectPtr<USkeletalMeshComponent> Mesh1P;
+	
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
 	TObjectPtr<UHealthComponent> Health;
 	
@@ -139,9 +144,7 @@ private:
 	
 	
 	
-	// 1인칭 시점 뷰 (arms)
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<USkeletalMeshComponent> Mesh1P;
+	
 	
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USpringArmComponent> SpringArm;
