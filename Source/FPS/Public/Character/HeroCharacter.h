@@ -81,6 +81,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category="FPS|HitReact")
 	TArray<TObjectPtr<UAnimMontage>> HitReacts;
 	
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|Respawn")
+	float RespawnTime;
+	
 protected:
 	
 	// 1인칭 시점 뷰 (arms)
@@ -138,6 +141,9 @@ private:
 	// Character 내부 계산값
 	FRotator StartingAimRotation;
 	float InterpAO_Yaw;
+	FTimerHandle DeathTimer;
+	
+	void DeathTimerFinished();
 	
 	// 무기가 처음 사용되는 경우 클라이언트 추적 목적
 	bool bWeaponFirstReplicated;

@@ -15,7 +15,9 @@
 #include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
 #include "FPS/FPS.h"
+#include "Game/HeroGameModeBase.h"
 #include "Health/HealthComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/HeroPlayerController.h"
 
 // Sets default values
@@ -64,6 +66,9 @@ AHeroCharacter::AHeroCharacter()
 	
 	TurningStatus = ETurningInPlace::NotTurning;
 	bWeaponFirstReplicated = false;
+	
+	// 사망 후 실제 Respawn 요청까지 기다리는 기본 시간.
+	RespawnTime = 3.f;
 }
 
 
@@ -259,6 +264,9 @@ void AHeroCharacter::TurnInPlace(float DeltaTime)
 		}
 	}
 }
+
+
+
 /* 
 // Turn In Place - 의사코드
 	// if AO_Yaw > 90
@@ -466,6 +474,9 @@ void AHeroCharacter::OnDeathStarted()
 	if (HasAuthority())
 	{
 		Combat->DestroyInventory();
+		
+		// Respawn은 Server Gameplay Rule이므로 Authority에서만 Timer를 시작한다.
+		GetWorld()->GetTimerManager().SetTimer(DeathTimer, this, &ThisClass::DeathTimerFinished, RespawnTime);
 	}
 	
 	if (GetNetMode() != NM_DedicatedServer)
@@ -490,6 +501,17 @@ void AHeroCharacter::OnDeathStarted()
 	// 죽은 Character가 더 이상 Weapon Trace Target이 되지 않도록 한다.
 	GetCapsuleComponent()->SetCollisionResponseToChannel(FPSTraceChannels::ECC_Weapon, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(FPSTraceChannels::ECC_Weapon, ECR_Ignore);
+}
+
+void AHeroCharacter::DeathTimerFinished()
+{
+	AHeroGameModeBase* GM = Cast<AHeroGameModeBase>(UGameplayStatics::GetGameMode(this));
+	if (IsValid(GM))
+	{
+		// Character가 직접 새 Pawn을 Spawn하지 않고 GameMode에게 Respawn Rule 처리를 요청한다.
+		GM->RequestRespawn(this, GetController());
+	}
+
 }
 
 void AHeroCharacter::Input_CycleWeapon()
