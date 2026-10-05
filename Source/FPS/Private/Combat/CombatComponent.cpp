@@ -64,7 +64,7 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	
 	GetWorld()->LineTraceSingleByChannel(Hit, Start, End, FPSTraceChannels::ECC_Weapon, QueryParams, ResponseParams);
 	
-	// Hit Actor가 Player인지 PlayerInterface로 판정
+	// Hit Actor가 Player인지 PlayerInterface로 판정 
 	bHitPlayer = IsValid(Hit.GetActor()) && Hit.GetActor()->Implements<UPlayerInterface>();
 	
 	// 매프레임을 이전 프레임과 비교해 "변화할 때만" 델리게이트 발송
@@ -479,10 +479,18 @@ void UCombatComponent::Server_FireWeapon_Implementation(const FHitResult& Hit)
 		return;
 	}
 
-	if (IsValid(Hit.GetActor()) && Hit.GetActor()->Implements<UPlayerInterface>())
+	// hit actor가 유효하고 PlayerInterface가 구현되어있는가
+	const bool bHit = IsValid(Hit.GetActor()) && Hit.GetActor()->Implements<UPlayerInterface>();
+	// 헤드샷 판정
+	const bool bHeadShot = Hit.BoneName == "head";
+	bool bLethal = false;
+	
+	if (bHit)
 	{
-		IPlayerInterface::Execute_DoDamage(Hit.GetActor(), CurrentWeapon->Damage, GetOwner());
+		bLethal = IPlayerInterface::Execute_DoDamage(Hit.GetActor(), CurrentWeapon->Damage, GetOwner());
 	}
+	
+	OnRoundReported.Broadcast(GetOwner(), Hit.GetActor(), bHit, bHeadShot, bLethal);
 	
 	// Listen Server Host의 중복 Ammo 감소 방지 - 예외처리
 	// 내가 방장이 아니거나, 내가 직접 조종하는 캐릭터가 아니라면 서버에서 총을 쏴라

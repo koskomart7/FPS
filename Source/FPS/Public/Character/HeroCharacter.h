@@ -8,6 +8,7 @@
 #include "ShooterTypes/ShooterTypes.h"
 #include "HeroCharacter.generated.h"
 
+class UEliminationComponent;
 class UHealthComponent;
 class AWeapon;
 class UCombatComponent;
@@ -40,7 +41,7 @@ public:
 	// Player State fallback 
 	virtual void OnRep_PlayerState() override;
 	
-	/** 플레이어 인터페이스 구현 **/
+	/** ========== 플레이어 인터페이스 구현 ============ **/
 #pragma region Player Interface Section
 
 	virtual FName GetWeaponAttachPoint_Implementation(const FGameplayTag& WeaponType) const override;
@@ -95,6 +96,9 @@ protected:
 	
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category = "FPS|Combat" )
 	TObjectPtr<UCombatComponent> Combat;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FPS|Elimination" )
+	TObjectPtr<UEliminationComponent> Elimination;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FPS|Camera")
 	TObjectPtr<UCameraComponent> FirstPersonCamera;

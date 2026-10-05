@@ -20,6 +20,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FRoundFired, int32, RoundsCurrent
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAimingStatusChanged, bool, bIsAiming);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTargetingPlayerStatusChanged, bool, bIsAiming);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FCurrentReserveAmmoChanged, int32, RoundsInReserve, int32, RoundsInWeapon, UMaterialInterface*, WeaponIconMaterial);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FRoundReported, AActor*, Attacker, AActor*, Victim, bool, bHit, bool, bHeadShot, bool, bLethal);
+
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class FPS_API UCombatComponent : public UActorComponent
@@ -75,6 +77,10 @@ public:
 	// 남은 예비탄약, 무기내 탄약 델리게이트
 	UPROPERTY(BlueprintAssignable)
 	FCurrentReserveAmmoChanged OnCurrentReserveAmmoChanged;
+	
+	// Elimination 통계 발생시 발송되는 델리게이트
+	UPROPERTY(BlueprintAssignable)
+	FRoundReported OnRoundReported;
 	
 	// 무기데이터
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly ,Category = "FPS|Weapons")

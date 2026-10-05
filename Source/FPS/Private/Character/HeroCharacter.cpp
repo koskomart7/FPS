@@ -14,6 +14,7 @@
 #include "Weapon/Weapon.h"
 #include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
+#include "Elimination/EliminationComponent.h"
 #include "FPS/FPS.h"
 #include "Game/HeroGameModeBase.h"
 #include "Health/HealthComponent.h"
@@ -59,6 +60,11 @@ AHeroCharacter::AHeroCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>("Combat");
 	Combat->SetIsReplicated(true);
 	
+	Elimination = CreateDefaultSubobject<UEliminationComponent>("Elimination");
+	// 통계 계산은 Server 내부에서만 수행하므로 Component State는 복제하지 않는다. 
+	// ( ActorComponent는 기본적으로 자동 복제 되지 않느다 ) -> 설계의도를 문서화 하는 효과
+	Elimination->SetIsReplicated(false);
+	
 	Health = CreateDefaultSubobject<UHealthComponent>("Health");
 	Health->SetIsReplicated(true);
 	
@@ -86,6 +92,12 @@ void AHeroCharacter::BeginPlay()
 	{
 		// 새 Pawn이 시작될 때 Local Input Gate를 살아 있는 상태로 복구한다.
 		PC->bPawnAlive = true;
+	}
+	
+	if (HasAuthority())
+	{
+		// Server의 Combat 결과만 Elimination 통계 시스템에 전달한다. (Subscriber Function)
+		Combat->OnRoundReported.AddDynamic(Elimination, &UEliminationComponent::OnRoundReported);
 	}
 	
 }
@@ -438,12 +450,13 @@ bool AHeroCharacter::DoDamage_Implementation(float DamageAmount, AActor* DamageI
 	// Change Health by DamageAmount - HP 감소 
 	if (!IsValid(Health)) return false;
 
-	// DoDamage의 양수 DamageAmount를 HealthComponent의 음수 변화량으로 변환한다.
-	Health->ChangeHealthByAmount(-DamageAmount, DamageInstigator);
-	
 	// calculate whether or not damage was leathal - 죽음 판정
-	
-	
+	// DoDamage의 양수 DamageAmount를 HealthComponent의 음수 변화량으로 변환한다.
+	// HealthComponent가 이번 Damage를 Lethal로 판단하면 그대로 true를 반환한다.
+	if (Health->ChangeHealthByAmount(-DamageAmount, DamageInstigator))
+	{
+		return true;
+	}
 	
 	// Play a Hit React montage ( also multicast hit react ) - Hit React 몽타주
 	const int32 MontageSelection = FMath::RandRange(0, HitReacts.Num() - 1);

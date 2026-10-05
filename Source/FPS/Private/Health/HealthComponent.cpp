@@ -46,7 +46,9 @@ bool UHealthComponent::ChangeHealthByAmount(float Amount, AActor* Instigator)
 	// Check if lethal -> start Death
 	if (Health <= 0.f)
 	{
+		// 사망 시작과 동시에 이번 Health 변경을 Lethal로 보고한다.
 		StartDeath();
+		return true;
 	}
 	
 	return false;
