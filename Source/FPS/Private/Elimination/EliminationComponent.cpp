@@ -4,6 +4,7 @@
 #include "Elimination/EliminationComponent.h"
 
 #include "Player/HeroPlayerState.h"
+#include "ShooterTypes/ShooterTypes.h"
 
 
 // Sets default values for this component's properties
@@ -47,6 +48,7 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 	AttackerPS->AddScoredElim();
 	VictimPS->AddDefeat();
 	
+	ESpecialElimType SpecialElimType { };
 	// Process Head Shot
 	// Process Sequential Eliminations
 	// Process Streaks
