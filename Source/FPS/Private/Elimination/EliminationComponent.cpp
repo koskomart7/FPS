@@ -13,6 +13,10 @@ UEliminationComponent::UEliminationComponent()
 	
 	PrimaryComponentTick.bCanEverTick = false;
 
+	// 직전 Kill 이후 이 시간 안에 다음 Kill이 발생하면 같은 Sequence로 본다.
+	SequentialElimInterval = 2.f;
+	LastElimTime = 0.f;
+	SequentialElims = 0;
 	
 }
 
@@ -49,8 +53,8 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 	VictimPS->AddDefeat();
 	
 	ESpecialElimType SpecialElimType { };
-	// Process Head Shot
-	// Process Sequential Eliminations
+	ProcessHeadShot(bHeadShot, SpecialElimType, AttackerPS);
+	ProcessSequentialEliminations(SpecialElimType, AttackerPS);
 	// Process Streaks
 	// Handle First Blood
 	// Update Leader Status
@@ -59,6 +63,38 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 		// Tell the client which special elims we got
 	// else ( We just got a regular elim )
 		// Just tell the client we got a regulat elim
+}
+
+void UEliminationComponent::ProcessHeadShot(bool bHeadShot, ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS)
+{
+	if (bHeadShot)
+	{
+		OutElimType |= ESpecialElimType::Headshot;
+		AttackerPS->AddHeadShotElim();
+	}
+}
+
+void UEliminationComponent::ProcessSequentialEliminations(ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS)
+{
+	// 현재 서버시간을 얻음
+	const float CurrentTime = GetWorld()->GetTimeSeconds();
+	// 경과시간이 <= SequentialElimInterval 이라면 
+	if (CurrentTime - LastElimTime <= SequentialElimInterval)
+	{
+		++SequentialElims;
+	}
+	else
+	{
+		SequentialElims = 1;
+	}
+	// Kill 후 반드시 LastElimTime 갱신
+	LastElimTime = CurrentTime;
+	
+	if (SequentialElims > 1)
+	{
+		OutElimType |= ESpecialElimType::Sequential;
+		AttackerPS->AddSequentialElim(SequentialElims);
+	}
 }
 
 void UEliminationComponent::ProcessHitOrMiss(bool bHit, AHeroPlayerState* AttackerPS)
