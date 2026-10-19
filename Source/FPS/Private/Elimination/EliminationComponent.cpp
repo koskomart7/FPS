@@ -3,6 +3,8 @@
 
 #include "Elimination/EliminationComponent.h"
 
+#include "Game/HeroGameStateBase.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/HeroPlayerState.h"
 #include "ShooterTypes/ShooterTypes.h"
 
@@ -17,7 +19,9 @@ UEliminationComponent::UEliminationComponent()
 	SequentialElimInterval = 2.f;
 	LastElimTime = 0.f;
 	SequentialElims = 0;
-	
+	// 죽지 않고 이 횟수만큼 kill 하면 streak 상태로 본다
+	Streak = 0;
+	ElimsNeededForStreak = 5;
 }
 
 void UEliminationComponent::OnRoundReported(AActor* Attacker, AActor* Victim, bool bHit, bool bHeadShot, bool bLethal)
@@ -55,8 +59,15 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 	ESpecialElimType SpecialElimType { };
 	ProcessHeadShot(bHeadShot, SpecialElimType, AttackerPS);
 	ProcessSequentialEliminations(SpecialElimType, AttackerPS);
-	// Process Streaks
-	// Handle First Blood
+	// 이번 Kill을 기준으로 Streak, Showstopper, Revenge까지 함께 판정한다.
+	ProcessStreaks(SpecialElimType, AttackerPS, VictimPS);
+	
+	//UGameplayStatics::GetGameState가 올바른 월드의 게임 상태를 찾을 수 있도록 "현재 게임 월드와 연결된 나침반" 역할로 AttackerPS를 사용
+	AHeroGameStateBase* GameState = Cast<AHeroGameStateBase>(UGameplayStatics::GetGameState(AttackerPS));
+	if (IsValid(GameState))
+	{
+		HandleFirstBlood(GameState, SpecialElimType, AttackerPS);
+	}
 	// Update Leader Status
 	
 	// if( Has Special Elim Types )
@@ -94,6 +105,48 @@ void UEliminationComponent::ProcessSequentialEliminations(ESpecialElimType& OutE
 	{
 		OutElimType |= ESpecialElimType::Sequential;
 		AttackerPS->AddSequentialElim(SequentialElims);
+	}
+}
+
+void UEliminationComponent::ProcessStreaks(ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS,
+	AHeroPlayerState* VictimPS)
+{
+	++Streak;
+	if (Streak >= ElimsNeededForStreak)
+	{
+		OutElimType |= ESpecialElimType::Streak;
+		AttackerPS->SetOnStreak(true);
+		AttackerPS->UpdateHighestStreak(Streak);
+	}
+	if (VictimPS->IsOnStreak())
+	{
+		// Streak 중인 Player를 제거했으므로 Showstopper Event를 추가한다.
+		OutElimType |= ESpecialElimType::Showstopper;
+		// 공격자의 Match 누적 Showstopper 기록을 증가시킨다.
+		AttackerPS->AddShowStopperElim();
+		// Victim의 Streak 상태는 이번 Death로 종료된다.
+		VictimPS->SetOnStreak(false);
+	}
+	if (AttackerPS->GetLastAttacker() == VictimPS)
+	{
+		OutElimType |= ESpecialElimType::Revenge;
+		AttackerPS->AddRevengeElim();
+		// Revenge를 달성했으므로 현재 Revenge Target을 소모한다.
+		AttackerPS->SetLastAttacker(nullptr);
+	}
+	// Victim의 LastAttacker는 항상 갱신
+	VictimPS->SetLastAttacker(AttackerPS);
+}
+
+void UEliminationComponent::HandleFirstBlood(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType,
+	AHeroPlayerState* AttackerPS)
+{
+	if (!GameState->HasFirstBloodBeenHad())
+	{
+		// Match 최초 Kill이면 이번 Elimination에 First Blood Flag를 추가한다.
+		OutElimType |= ESpecialElimType::FirstBlood;
+		// Attacker PlayerState에도 First Blood 달성 기록을 남긴다.
+		AttackerPS->GotFirstBlood();
 	}
 }
 

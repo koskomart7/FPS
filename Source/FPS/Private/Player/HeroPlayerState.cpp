@@ -123,3 +123,27 @@ void AHeroPlayerState::IsNowWinner()
 {
 	bWinner = true;
 }
+
+void AHeroPlayerState::SetOnStreak(bool bIsOnStreak)
+{
+	// Streak 진입/종료 상태를 Server PlayerState에 기록한다.
+	bOnStreak = bIsOnStreak;
+}
+
+void AHeroPlayerState::SetLastAttacker(APlayerState* Attacker)
+{
+	// Revenge 판정을 위해 마지막 killer를 약한 참조로 저장한다.
+	LastAttacker = Attacker;
+}
+
+bool AHeroPlayerState::IsOnStreak()
+{
+	// 현재 이 Player가 Streak 상태인지 읽는다.
+	return bOnStreak;
+}
+
+APlayerState* AHeroPlayerState::GetLastAttacker() const
+{
+	// Weak Pointer 대상이 아직 살아 있을 때만 raw 포인터를 반환한다.
+	return LastAttacker.IsValid() ? LastAttacker.Get() : nullptr;
+}

@@ -29,6 +29,12 @@ public:
 	void AddShowStopperElim();
 	void GotFirstBlood();
 	void IsNowWinner();
+	void SetOnStreak(bool bIsOnStreak);
+	void SetLastAttacker(APlayerState* Attacker);
+	
+	bool IsOnStreak();
+	APlayerState* GetLastAttacker() const;
+	
 	
 private:
 	int32 ScoredElims;
@@ -45,4 +51,6 @@ private:
 	bool bFirstBlood;
 	bool bWinner;
 	
+	// 캐릭터가 죽거나 교체되더라도 player identity와 함께 유지되기에 적합한 playerstate 사용  
+	TWeakObjectPtr<APlayerState> LastAttacker;
 };
