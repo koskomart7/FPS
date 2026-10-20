@@ -147,3 +147,9 @@ APlayerState* AHeroPlayerState::GetLastAttacker() const
 	// Weak Pointer 대상이 아직 살아 있을 때만 raw 포인터를 반환한다.
 	return LastAttacker.IsValid() ? LastAttacker.Get() : nullptr;
 }
+
+int32 AHeroPlayerState::GetScoredElims() const
+{
+	// Leader 계산에서 사용할 현재 누적 Elimination 수를 반환한다.
+	return ScoredElims;
+}
