@@ -5,7 +5,8 @@
 
 AHeroPlayerState::AHeroPlayerState()
 {
-	NetUpdateFrequency = 100.f;
+	// UE 5.8에서 제공하는 Setter를 통해 Network Update Frequency를 설정한다.
+	SetNetUpdateFrequency(100.f);
 	
 	ScoredElims = 0;
 	Defeats = 0;
@@ -152,4 +153,9 @@ int32 AHeroPlayerState::GetScoredElims() const
 {
 	// Leader 계산에서 사용할 현재 누적 Elimination 수를 반환한다.
 	return ScoredElims;
+}
+
+void AHeroPlayerState::Client_LostTheLeader_Implementation()
+{
+	// TODO: 클라이언트에게 선두 자리를 내주었다는 사실을 알립니다.
 }

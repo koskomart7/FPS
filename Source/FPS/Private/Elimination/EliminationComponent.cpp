@@ -66,9 +66,11 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 	AHeroGameStateBase* GameState = Cast<AHeroGameStateBase>(UGameplayStatics::GetGameState(AttackerPS));
 	if (IsValid(GameState))
 	{
+		// 먼저 이전 Match 상태를 기준으로 First Blood인지 판정한다.
 		HandleFirstBlood(GameState, SpecialElimType, AttackerPS);
+		// 그 다음 이번 Kill이 반영된 Leader 상태를 계산한다.
+		UpdateLeaderStatus(GameState,SpecialElimType, AttackerPS, VictimPS);
 	}
-	// Update Leader Status
 	
 	// if( Has Special Elim Types )
 		// Tell the client which special elims we got
@@ -147,6 +149,40 @@ void UEliminationComponent::HandleFirstBlood(AHeroGameStateBase* GameState, ESpe
 		OutElimType |= ESpecialElimType::FirstBlood;
 		// Attacker PlayerState에도 First Blood 달성 기록을 남긴다.
 		AttackerPS->GotFirstBlood();
+	}
+}
+
+void UEliminationComponent::UpdateLeaderStatus(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType,
+	AHeroPlayerState* AttackerPS, AHeroPlayerState* VictimPS)
+{
+	// 이번 Kill의 Score 변화가 반영되기 전 단독 Leader가 누구였는가?
+	AHeroPlayerState* LastLeader = GameState->GetSoleLeader();
+	// Attacker가 이전 Leaders 배열에 있었는가?
+	const bool bAttackerWasTiedForTheLead = GameState->IsTiedForTheLead(AttackerPS);
+	// 이번 Kill Score가 반영된 후의 Leader 재계산
+	GameState->UpdateLeader();
+	if (!bAttackerWasTiedForTheLead && GameState->IsTiedForTheLead(AttackerPS))
+	{
+		// 공격자는 이전에는 공동 선두가 아니었으나, 현재는 공동 선두가 되었다
+		OutElimType |= ESpecialElimType::TiedTheLeader;
+	}
+	if (IsValid(LastLeader) && LastLeader != GameState->GetSoleLeader())
+	{
+		// LastLeader가 선두 자리를 내주었습니다
+		LastLeader->Client_LostTheLeader();
+		
+		if (VictimPS == LastLeader)
+		{
+			// 이번 Kill의 Victim이 직전 단독 Leader였으므로 Dethrone을 획득한다.
+			OutElimType |= ESpecialElimType::Dethrone;
+			AttackerPS->AddDethroneElim();
+		}
+	}
+	
+	if (AttackerPS != LastLeader && AttackerPS == GameState->GetSoleLeader())
+	{
+		// 이전 단독 Leader가 아니었던 Attacker가 현재 단독 Leader가 됐다.
+		OutElimType |= ESpecialElimType::GainedTheLead;
 	}
 }
 

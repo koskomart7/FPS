@@ -44,4 +44,6 @@ private:
 	void ProcessSequentialEliminations(ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS);
 	void ProcessStreaks(ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS, AHeroPlayerState* VictimPS);
 	void HandleFirstBlood(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS);
+	void UpdateLeaderStatus(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType, 
+		AHeroPlayerState* AttackerPS, AHeroPlayerState* VictimPS);
 };
