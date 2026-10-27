@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerState.h"
 #include "HeroPlayerState.generated.h"
 
+enum class ESpecialElimType : uint16;
 /**
  * 
  */
@@ -39,6 +40,12 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_LostTheLeader();
 
+	UFUNCTION(Client, Reliable)
+	void Client_ScoredElim(int32 ElimScore);
+	
+	UFUNCTION(Client, Reliable)
+	void Client_SpecialElim(const ESpecialElimType& SpecialElim, int32 SequentialElimCount, int32 StreakCount, int32 ElimScore);
+	
 private:
 	int32 ScoredElims;
 	int32 Defeats;

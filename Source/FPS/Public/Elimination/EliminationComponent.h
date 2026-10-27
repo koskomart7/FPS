@@ -46,4 +46,6 @@ private:
 	void HandleFirstBlood(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS);
 	void UpdateLeaderStatus(AHeroGameStateBase* GameState, ESpecialElimType& OutElimType, 
 		AHeroPlayerState* AttackerPS, AHeroPlayerState* VictimPS);
+	bool HasSpecialElimTypes(const ESpecialElimType& SpecialElimType) const;
+	
 };

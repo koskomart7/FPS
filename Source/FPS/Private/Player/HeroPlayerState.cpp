@@ -155,6 +155,20 @@ int32 AHeroPlayerState::GetScoredElims() const
 	return ScoredElims;
 }
 
+void AHeroPlayerState::Client_ScoredElim_Implementation(int32 ElimScore)
+{
+	// TODO:
+	// 일반 Elimination 메시지와 새로운 Score를 HUD에 반영한다.
+}
+
+void AHeroPlayerState::Client_SpecialElim_Implementation(const ESpecialElimType& SpecialElim, int32 SequentialElimCount,
+	int32 StreakCount, int32 ElimScore)
+{
+	// TODO:
+	// SpecialElim Bitmask를 해석하고
+	// 필요한 HUD 메시지와 Score를 갱신한다.
+}
+
 void AHeroPlayerState::Client_LostTheLeader_Implementation()
 {
 	// TODO: 클라이언트에게 선두 자리를 내주었다는 사실을 알립니다.

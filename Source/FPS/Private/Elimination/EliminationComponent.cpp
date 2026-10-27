@@ -76,6 +76,14 @@ void UEliminationComponent::ProcessElimination(bool bHeadShot, AHeroPlayerState*
 		// Tell the client which special elims we got
 	// else ( We just got a regular elim )
 		// Just tell the client we got a regulat elim
+	if (HasSpecialElimTypes(SpecialElimType))
+	{
+		AttackerPS->Client_SpecialElim(SpecialElimType, SequentialElims, Streak, AttackerPS->GetScoredElims());
+	}
+	else
+	{
+		AttackerPS->Client_ScoredElim(AttackerPS->GetScoredElims());
+	}
 }
 
 void UEliminationComponent::ProcessHeadShot(bool bHeadShot, ESpecialElimType& OutElimType, AHeroPlayerState* AttackerPS)
@@ -186,6 +194,12 @@ void UEliminationComponent::UpdateLeaderStatus(AHeroGameStateBase* GameState, ES
 	}
 }
 
+bool UEliminationComponent::HasSpecialElimTypes(const ESpecialElimType& SpecialElimType) const
+{
+	// 모든 Bit가 0이면 Regular Elim, 하나라도 1이면 Special Elim이다.
+	return static_cast<uint16>(SpecialElimType) != 0;
+}
+
 void UEliminationComponent::ProcessHitOrMiss(bool bHit, AHeroPlayerState* AttackerPS)
 {
 	// Victim 없이도 계산 가능 
@@ -198,8 +212,6 @@ void UEliminationComponent::ProcessHitOrMiss(bool bHit, AHeroPlayerState* Attack
 		AttackerPS->AddMiss();
 	}
 }
-
-
 
 AHeroPlayerState* UEliminationComponent::GetPlayerStateFromActor(AActor* Actor)
 {
