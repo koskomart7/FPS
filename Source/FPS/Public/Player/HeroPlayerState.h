@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerState.h"
 #include "HeroPlayerState.generated.h"
 
+class USpecialElim;
+class USpecialElimData;
 enum class ESpecialElimType : uint16;
 /**
  * 
@@ -45,6 +47,13 @@ public:
 	
 	UFUNCTION(Client, Reliable)
 	void Client_SpecialElim(const ESpecialElimType& SpecialElim, int32 SequentialElimCount, int32 StreakCount, int32 ElimScore);
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FPS|SpecialElims")
+	TObjectPtr<USpecialElimData> SpecialElimData;
+	
+	// 이벤트가 발생했을 때만 생성 및 실행되는 구조에 사용 
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|SpecialElim")
+	TSubclassOf<USpecialElim> SpecialElimWidgetClass;
 	
 private:
 	int32 ScoredElims;

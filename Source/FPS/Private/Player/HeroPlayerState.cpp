@@ -3,6 +3,9 @@
 
 #include "Player/HeroPlayerState.h"
 
+#include "Data/SpecialElimData.h"
+#include "UI/Elims/SpecialElim.h"
+
 AHeroPlayerState::AHeroPlayerState()
 {
 	// UE 5.8에서 제공하는 Setter를 통해 Network Update Frequency를 설정한다.
@@ -172,4 +175,17 @@ void AHeroPlayerState::Client_SpecialElim_Implementation(const ESpecialElimType&
 void AHeroPlayerState::Client_LostTheLeader_Implementation()
 {
 	// TODO: 클라이언트에게 선두 자리를 내주었다는 사실을 알립니다.
+	ensure(IsValid(SpecialElimData));
+	FSpecialElimInfo& ElimMessageInfo = SpecialElimData->SpecialElimInfo.FindChecked(ESpecialElimType::LostTheLead);
+	
+	if (IsValid(SpecialElimWidgetClass))
+	{
+		// 지역 변수 - 제거 후 더 이상 강한 참조가 없으면 나중에 GC 정리 대상이 될 수 있다. 단순 Popup에는 적절하다.
+		USpecialElim* ElimWidget = CreateWidget<USpecialElim>(GetPlayerController(), SpecialElimWidgetClass);
+		if (IsValid(ElimWidget))
+		{
+			ElimWidget->InitializeWidget(ElimMessageInfo.ElimMessage, ElimMessageInfo.ElimIcon);
+			ElimWidget->AddToViewport();
+		}
+	}
 }
