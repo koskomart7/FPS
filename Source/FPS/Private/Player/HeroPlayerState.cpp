@@ -23,6 +23,8 @@ AHeroPlayerState::AHeroPlayerState()
 	ShowStopperElims = 0;
 	bFirstBlood = false;
 	bWinner = false;
+	bIsProcessingQueue = false;
+	ElimDisplayTime = 0.5f;
 }
 
 void AHeroPlayerState::AddScoredElim()
@@ -158,6 +160,33 @@ int32 AHeroPlayerState::GetScoredElims() const
 	return ScoredElims;
 }
 
+TArray<ESpecialElimType> AHeroPlayerState::DecodeElimBitmask(ESpecialElimType ElimTypeBitmask)
+{
+	// 입력 Bitmask에서 발견한 유효한 개별 Flag들을 순서대로 모으는 배열 
+	TArray<ESpecialElimType> ValidElims;
+	
+	// Enum Wrapper를 벗겨 실제 16 bit 정수 값으로 변환
+	uint16 BitmaskValue = static_cast<uint16>(ElimTypeBitmask);
+	
+	// uint16의 모든 Bit Position을 한 번씩 검사
+	for (uint16 i = 0; i < 16; i++)
+	{
+		// 현재 i번째 Bit가 BitmaskValue와 동일한 위치에 켜져 있는가?_ 1 & 1 = 1 일때만 동작
+		// 00000000 00000001 & 00000000 00000001 = 1 ( true )
+		if (BitmaskValue & (1 << i))
+		{
+			// 검출된 Bit를 ESpecialElimType으로 복원
+			ESpecialElimType EnumValue = static_cast<ESpecialElimType>(1 << i);
+			// 요소를 Array 끝에 추가 ( 반환 순서가 UI 표시 순서가 될 수 있음 )
+			ValidElims.Add(EnumValue);
+		}
+	}
+	return ValidElims;
+}
+
+
+
+
 void AHeroPlayerState::Client_ScoredElim_Implementation(int32 ElimScore)
 {
 	// TODO:
@@ -170,6 +199,97 @@ void AHeroPlayerState::Client_SpecialElim_Implementation(const ESpecialElimType&
 	// TODO:
 	// SpecialElim Bitmask를 해석하고
 	// 필요한 HUD 메시지와 Score를 갱신한다.
+	
+	// SpecialElimData가 반드시 유효해야 한다. but UE의 ensure는 실패되어도 계속 실행된다.
+	ensure(IsValid(SpecialElimData));
+	
+	// 복합 Bitmask를 데이타에셋의 원자적 Map Key로 사용 가능
+	TArray<ESpecialElimType> ElimTypes = DecodeElimBitmask(SpecialElim);
+	// Decode 결과를 순회
+	for (ESpecialElimType ElimType : ElimTypes)
+	{
+		// 원자적 Enum 하나를 Key로 사용 Massage, Icon, Runtime Field Container를 얻는다. (Lookup - 조회용)
+		FSpecialElimInfo& ElimMessageInfo = SpecialElimData->SpecialElimInfo.FindChecked(ElimType);
+		if (ElimType == ESpecialElimType::Sequential)
+		{
+			ElimMessageInfo.SequentialElimCount = SequentialElimCount;
+		}
+		if (ElimType == ESpecialElimType::Streak)
+		{
+			ElimMessageInfo.StreakCount = StreakCount;
+		}
+		// Struct에 ElimType도 저장
+		// Queue에는 Map Key가 같이 저장되지 않는다. Elimtype 유형을 판단하려면 구조체 내부에 Type 필요
+		// 큐에 들어가기 직전, 구조체 내부에 "내가 무슨 타입인지" 명시하여 독립성 확보
+		ElimMessageInfo.ElimType = ElimType;
+		
+		// FIFO = First-in, First-out ( 대기실에 적재 )
+		// Self Contained Payload 용 -> 데이터 자체만으로 모든 정보를 완벽하게 포함하고 있는 상태
+		SpecialElimQueue.Enqueue(ElimMessageInfo);
+	}
+	if (!bIsProcessingQueue)
+	{
+		ProcessNextSpecialElim();
+	}
+}
+
+void AHeroPlayerState::ProcessNextSpecialElim()
+{
+	// Dequeue()가 Queue의 가장 오래된 Item을 반환
+	FSpecialElimInfo ElimInfo;
+	if (SpecialElimQueue.Dequeue(ElimInfo))
+	{
+		bIsProcessingQueue = true;
+		ShowSpecialElim(ElimInfo);
+		
+		// 현재 Dequeue 처리 전체를 확실히 끝낸 뒤 다음 Frame에서 실제 Delay Timer를 설정
+		GetWorldTimerManager().SetTimerForNextTick([this]()
+		{
+			FTimerHandle TimerHandle;	// 람다 지역 변수
+			GetWorldTimerManager().SetTimer(
+				TimerHandle, 
+				this, 
+				&AHeroPlayerState::ProcessNextSpecialElim, 
+				ElimDisplayTime,
+				false);
+		});
+	}
+	else
+	{
+		// Queue가 비면 프로세싱 종료 ( Dequeue 실패시 )
+		bIsProcessingQueue = false;
+		
+		// 이후 새로운 Client_SpecialElim RPC가 오면 다시 시작
+	}
+}
+
+void AHeroPlayerState::ShowSpecialElim(const FSpecialElimInfo& ElimMessageInfo)
+{
+	FString ElimMessageString = ElimMessageInfo.ElimMessage;
+	// Sequential 메시지 가공
+	if (ElimMessageInfo.ElimType == ESpecialElimType::Sequential)
+	{
+		if (ElimMessageInfo.SequentialElimCount == 2) ElimMessageString = FString("Double Elim!");
+		else if (ElimMessageInfo.SequentialElimCount == 3) ElimMessageString = FString("Triple Elim!");
+		else if (ElimMessageInfo.SequentialElimCount == 4) ElimMessageString = FString("Quad Elim!");
+		else if (ElimMessageInfo.SequentialElimCount > 5) 
+			ElimMessageString = FString::Printf(TEXT("Rampage x%d!"), ElimMessageInfo.SequentialElimCount);	
+	}
+	// Streak 메시지 가공
+	if (ElimMessageInfo.ElimType == ESpecialElimType::Streak) 
+		ElimMessageString = FString::Printf(TEXT("Streak %d!"), ElimMessageInfo.StreakCount);
+	
+	// 위젯 생성
+	if (IsValid(SpecialElimWidgetClass))
+	{
+		USpecialElim* ElimWidget = 
+			CreateWidget<USpecialElim>(GetPlayerController(), SpecialElimWidgetClass);
+		if (IsValid(ElimWidget))
+		{
+			ElimWidget->InitializeWidget(ElimMessageString, ElimMessageInfo.ElimIcon);
+			ElimWidget->AddToViewport();
+		}
+	}
 }
 
 void AHeroPlayerState::Client_LostTheLeader_Implementation()
@@ -181,7 +301,8 @@ void AHeroPlayerState::Client_LostTheLeader_Implementation()
 	if (IsValid(SpecialElimWidgetClass))
 	{
 		// 지역 변수 - 제거 후 더 이상 강한 참조가 없으면 나중에 GC 정리 대상이 될 수 있다. 단순 Popup에는 적절하다.
-		USpecialElim* ElimWidget = CreateWidget<USpecialElim>(GetPlayerController(), SpecialElimWidgetClass);
+		USpecialElim* ElimWidget = 
+			CreateWidget<USpecialElim>(GetPlayerController(), SpecialElimWidgetClass);
 		if (IsValid(ElimWidget))
 		{
 			ElimWidget->InitializeWidget(ElimMessageInfo.ElimMessage, ElimMessageInfo.ElimIcon);

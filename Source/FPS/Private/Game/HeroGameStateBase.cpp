@@ -77,5 +77,6 @@ AHeroPlayerState* AHeroGameStateBase::GetSoleLeader() const
 
 bool AHeroGameStateBase::IsTiedForTheLead(AHeroPlayerState* PlayerState)
 {
-	return Leaders.Contains(PlayerState);
+	// 플레이어가 Leaders에 포함되어있고, Leader가 2명 이상일때
+	return Leaders.Contains(PlayerState) && Leaders.Num() > 1;
 }

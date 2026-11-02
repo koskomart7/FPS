@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Data/SpecialElimData.h"
 #include "GameFramework/PlayerState.h"
 #include "HeroPlayerState.generated.h"
 
@@ -45,6 +46,7 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_ScoredElim(int32 ElimScore);
 	
+	// Network Data 수신 -> Presentation Queue 생성
 	UFUNCTION(Client, Reliable)
 	void Client_SpecialElim(const ESpecialElimType& SpecialElim, int32 SequentialElimCount, int32 StreakCount, int32 ElimScore);
 	
@@ -52,8 +54,11 @@ public:
 	TObjectPtr<USpecialElimData> SpecialElimData;
 	
 	// 이벤트가 발생했을 때만 생성 및 실행되는 구조에 사용 
-	UPROPERTY(EditDefaultsOnly, Category = "FPS|SpecialElim")
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|SpecialElims")
 	TSubclassOf<USpecialElim> SpecialElimWidgetClass;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "FPS|SpecialElims")
+	float ElimDisplayTime;
 	
 private:
 	int32 ScoredElims;
@@ -72,4 +77,14 @@ private:
 	
 	// 캐릭터가 죽거나 교체되더라도 player identity와 함께 유지되기에 적합한 playerstate 사용  
 	TWeakObjectPtr<APlayerState> LastAttacker;
+	
+	TArray<ESpecialElimType> DecodeElimBitmask(ESpecialElimType ElimTypeBitmask);
+
+	
+	void ProcessNextSpecialElim();
+	void ShowSpecialElim(const FSpecialElimInfo& ElimMessageInfo);
+	// FSpecialElimInfo를 값으로 직접 저장. 따라서 컴파일러가 구조체의 정의/크기를 알아야한다 - 헤더 추가 
+	TQueue<FSpecialElimInfo> SpecialElimQueue;
+	// ProcessNextSpecialElim을 연속적으로 호출하는 Timer Chain이 살아 있는가?
+	bool bIsProcessingQueue;
 };
