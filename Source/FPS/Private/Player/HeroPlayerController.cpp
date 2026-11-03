@@ -14,6 +14,13 @@ AHeroPlayerController::AHeroPlayerController()
 	bPawnAlive = true;
 }
 
+void AHeroPlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	// PlayerState Reference가 Client에 도착했음을 UI 계층에 알린다.
+	OnPlayerStateReplicated.Broadcast();
+}
+
 void AHeroPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

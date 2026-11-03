@@ -191,6 +191,8 @@ void AHeroPlayerState::Client_ScoredElim_Implementation(int32 ElimScore)
 {
 	// TODO:
 	// 일반 Elimination 메시지와 새로운 Score를 HUD에 반영한다.
+	// 서버가 전달한 최신 누적 Elim Score를 로컬 UI 이벤트로 전달한다.
+	OnScoreChanged.Broadcast(ElimScore);
 }
 
 void AHeroPlayerState::Client_SpecialElim_Implementation(const ESpecialElimType& SpecialElim, int32 SequentialElimCount,
@@ -202,6 +204,9 @@ void AHeroPlayerState::Client_SpecialElim_Implementation(const ESpecialElimType&
 	
 	// SpecialElimData가 반드시 유효해야 한다. but UE의 ensure는 실패되어도 계속 실행된다.
 	ensure(IsValid(SpecialElimData));
+	
+	// 서버가 전달한 최신 누적 Elim Score를 로컬 UI 이벤트로 전달한다.
+	OnScoreChanged.Broadcast(ElimScore);
 	
 	// 복합 Bitmask를 데이타에셋의 원자적 Map Key로 사용 가능
 	TArray<ESpecialElimType> ElimTypes = DecodeElimBitmask(SpecialElim);

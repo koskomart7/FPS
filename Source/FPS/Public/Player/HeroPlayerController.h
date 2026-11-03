@@ -9,9 +9,9 @@
 struct FInputActionValue;
 class UInputAction;
 class UInputMappingContext;
-/**
- * 
- */
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayerStateReplicated);
+
 UCLASS()
 class FPS_API AHeroPlayerController : public APlayerController
 {
@@ -20,6 +20,12 @@ class FPS_API AHeroPlayerController : public APlayerController
 public:
 	
 	AHeroPlayerController();
+	
+	// PlayerState가 리플리케이션되었을 때 델리게이트 발송
+	UPROPERTY(BlueprintAssignable)
+	FPlayerStateReplicated OnPlayerStateReplicated;
+	
+	virtual void OnRep_PlayerState() override;
 	
 	bool bPawnAlive;
 protected:
